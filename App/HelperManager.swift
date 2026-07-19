@@ -22,10 +22,11 @@ final class HelperManager {
 
     var state: HelperState {
         switch service.status {
-        case .notRegistered: return .notRegistered
+        // SMAppService reports .notFound for a daemon that was never
+        // registered — that's the normal first-run state, not an error.
+        case .notRegistered, .notFound: return .notRegistered
         case .enabled: return .enabled
         case .requiresApproval: return .requiresApproval
-        case .notFound: return .error("helper not found in app bundle")
         @unknown default: return .error("unknown SMAppService status")
         }
     }

@@ -38,6 +38,7 @@ struct MenuView: View {
                 Text(modeDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if appState.status != nil {
@@ -54,15 +55,16 @@ struct MenuView: View {
         }
     }
 
+    // One accent only: orange while the guard is actively protecting.
+    // Everything else stays monochrome.
     private var headerColor: Color {
-        switch appState.status?.mode {
-        case .guarding: return .orange
-        case .probing: return .blue
-        default: return .green
-        }
+        appState.status?.mode == .guarding ? .orange : .primary
     }
 
     private var modeDescription: String {
+        guard appState.helperState == .enabled else {
+            return "Helper not installed"
+        }
         guard let s = appState.status else { return "Connecting to helper…" }
         switch s.mode {
         case .observing:
@@ -116,16 +118,24 @@ struct MenuView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("The privileged helper is not running.")
                 .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
             Text("ChargeGuard needs a small root daemon to control the " +
                  "SMC charging gate. Install it once, then approve it in " +
                  "System Settings › Login Items.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             if case .error(let message) = appState.helperState {
-                Text(message).font(.caption).foregroundStyle(.red)
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let err = appState.lastError {
-                Text(err).font(.caption).foregroundStyle(.red)
+                Label(err, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
                 Button("Install Helper") { appState.installHelper() }
@@ -177,7 +187,7 @@ struct EventLogView: View {
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Image(systemName: symbol(for: event.kind))
                                     .font(.caption2)
-                                    .foregroundStyle(color(for: event.kind))
+                                    .foregroundStyle(.secondary)
                                     .frame(width: 12)
                                 Text(event.message)
                                     .font(.caption2)
@@ -205,13 +215,4 @@ struct EventLogView: View {
         }
     }
 
-    private func color(for kind: GuardEvent.Kind) -> Color {
-        switch kind {
-        case .info: return .secondary
-        case .guardOn: return .orange
-        case .guardOff: return .green
-        case .probe: return .blue
-        case .warning: return .red
-        }
-    }
 }
