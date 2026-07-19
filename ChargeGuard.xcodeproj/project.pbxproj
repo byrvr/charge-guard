@@ -1,0 +1,481 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C02873CE6E400085241A4E9 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F42DAD8FD621D2D8649C77 /* main.swift */; };
+		0DB8B01F090A2CF824E69DBA /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
+		12E3112230981FABDDD96E70 /* GuardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */; };
+		16C3B58544BEDA750BDC775B /* ChargeGuardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */; };
+		27B6776267A10524E1F5838E /* XPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */; };
+		308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */; };
+		56B8652799A20D13FB4385EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FA2D6629F08C6E08A8D99BE /* AppState.swift */; };
+		5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
+		7174C5619E9D01C40DD477A8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65752A9C6AC9B06533E9189 /* SettingsView.swift */; };
+		A075BDF185CC64EDF3EE9CCA /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
+		A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */; };
+		A73206B49B8B138260831B86 /* HelperManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016FCB2270CC9143194783D3 /* HelperManager.swift */; };
+		C4E8D6A7FCDBDED8C6B87B73 /* PowerMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */; };
+		D1177F354D514815F2007D6B /* SMCBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 605B11518543B0ADE922726C /* SMCBridge.c */; };
+		E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		18B0541B3FAC106C3928D5D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6822917938B5C38F53DD1F2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 34B5E436B1C638725E77B0B5;
+			remoteInfo = ChargeGuardHelper;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		016FCB2270CC9143194783D3 /* HelperManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperManager.swift; sourceTree = "<group>"; };
+		06F42DAD8FD621D2D8649C77 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
+		172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerMonitor.swift; sourceTree = "<group>"; };
+		249DF50A817230216A4CA629 /* SMCBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SMCBridge.h; sourceTree = "<group>"; };
+		2EEACD198A006EB860CD64F2 /* GuardModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardModels.swift; sourceTree = "<group>"; };
+		3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChargeGuard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngine.swift; sourceTree = "<group>"; };
+		605B11518543B0ADE922726C /* SMCBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SMCBridge.c; sourceTree = "<group>"; };
+		6CF52581B2F94E2296D90274 /* ChargeGuardHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = ChargeGuardHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		6DB8AF3172C77AFA22C35FFF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7FA2D6629F08C6E08A8D99BE /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargeGuardApp.swift; sourceTree = "<group>"; };
+		C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClient.swift; sourceTree = "<group>"; };
+		D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCService.swift; sourceTree = "<group>"; };
+		F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCProtocol.swift; sourceTree = "<group>"; };
+		F65752A9C6AC9B06533E9189 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		01C7B4BBCA87BF1C3B9113A1 = {
+			isa = PBXGroup;
+			children = (
+				E33C259D586C2FBF4DAAE51F /* App */,
+				2C4B5813CFF7268C2526F5B2 /* Helper */,
+				D23FAF91FCC31E824FF7D56D /* Shared */,
+				529AA1FAB619A904425A2A79 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2C4B5813CFF7268C2526F5B2 /* Helper */ = {
+			isa = PBXGroup;
+			children = (
+				3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */,
+				06F42DAD8FD621D2D8649C77 /* main.swift */,
+				172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */,
+				605B11518543B0ADE922726C /* SMCBridge.c */,
+				249DF50A817230216A4CA629 /* SMCBridge.h */,
+				D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */,
+			);
+			path = Helper;
+			sourceTree = "<group>";
+		};
+		529AA1FAB619A904425A2A79 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */,
+				6CF52581B2F94E2296D90274 /* ChargeGuardHelper */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6A4D870D78F772A4502F7CF9 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */,
+				F65752A9C6AC9B06533E9189 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D23FAF91FCC31E824FF7D56D /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				2EEACD198A006EB860CD64F2 /* GuardModels.swift */,
+				F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		E33C259D586C2FBF4DAAE51F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7FA2D6629F08C6E08A8D99BE /* AppState.swift */,
+				B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */,
+				016FCB2270CC9143194783D3 /* HelperManager.swift */,
+				6DB8AF3172C77AFA22C35FFF /* Info.plist */,
+				C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */,
+				6A4D870D78F772A4502F7CF9 /* Views */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		34B5E436B1C638725E77B0B5 /* ChargeGuardHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A75DE8E05F74036E620E3C02 /* Build configuration list for PBXNativeTarget "ChargeGuardHelper" */;
+			buildPhases = (
+				36529E4F609308434F2B20AA /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ChargeGuardHelper;
+			packageProductDependencies = (
+			);
+			productName = ChargeGuardHelper;
+			productReference = 6CF52581B2F94E2296D90274 /* ChargeGuardHelper */;
+			productType = "com.apple.product-type.tool";
+		};
+		579A06A1D9586594E6D289AE /* ChargeGuard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4766E74898DA11E5E0942F9A /* Build configuration list for PBXNativeTarget "ChargeGuard" */;
+			buildPhases = (
+				4A0F92198C118D4EB5B55875 /* Sources */,
+				25D22009A6C63991ED975953 /* Embed Privileged Helper */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				65E66506209BAACDE615AD35 /* PBXTargetDependency */,
+			);
+			name = ChargeGuard;
+			packageProductDependencies = (
+			);
+			productName = ChargeGuard;
+			productReference = 3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6822917938B5C38F53DD1F2B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					34B5E436B1C638725E77B0B5 = {
+						ProvisioningStyle = Automatic;
+					};
+					579A06A1D9586594E6D289AE = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = A69F7BFBE74FDD4B49C2D436 /* Build configuration list for PBXProject "ChargeGuard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 01C7B4BBCA87BF1C3B9113A1;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 529AA1FAB619A904425A2A79 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				34B5E436B1C638725E77B0B5 /* ChargeGuardHelper */,
+				579A06A1D9586594E6D289AE /* ChargeGuard */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		25D22009A6C63991ED975953 /* Embed Privileged Helper */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/ChargeGuardHelper",
+				"$(SRCROOT)/Config/dev.byrvr.ChargeGuard.helper.plist",
+			);
+			name = "Embed Privileged Helper";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/MacOS/ChargeGuardHelper",
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Library/LaunchDaemons/dev.byrvr.ChargeGuard.helper.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nAPP=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nmkdir -p \"${APP}/Contents/MacOS\" \"${APP}/Contents/Library/LaunchDaemons\"\ncp \"${BUILT_PRODUCTS_DIR}/ChargeGuardHelper\" \"${APP}/Contents/MacOS/\"\ncp \"${SRCROOT}/Config/dev.byrvr.ChargeGuard.helper.plist\" \\\n   \"${APP}/Contents/Library/LaunchDaemons/\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		36529E4F609308434F2B20AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12E3112230981FABDDD96E70 /* GuardEngine.swift in Sources */,
+				E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */,
+				C4E8D6A7FCDBDED8C6B87B73 /* PowerMonitor.swift in Sources */,
+				D1177F354D514815F2007D6B /* SMCBridge.c in Sources */,
+				308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */,
+				5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */,
+				0C02873CE6E400085241A4E9 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4A0F92198C118D4EB5B55875 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				56B8652799A20D13FB4385EA /* AppState.swift in Sources */,
+				16C3B58544BEDA750BDC775B /* ChargeGuardApp.swift in Sources */,
+				A075BDF185CC64EDF3EE9CCA /* GuardModels.swift in Sources */,
+				A73206B49B8B138260831B86 /* HelperManager.swift in Sources */,
+				A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */,
+				7174C5619E9D01C40DD477A8 /* SettingsView.swift in Sources */,
+				27B6776267A10524E1F5838E /* XPCClient.swift in Sources */,
+				0DB8B01F090A2CF824E69DBA /* XPCProtocol.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		65E66506209BAACDE615AD35 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 34B5E436B1C638725E77B0B5 /* ChargeGuardHelper */;
+			targetProxy = 18B0541B3FAC106C3928D5D8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2E3E36D8CF0BFE15FB729FAF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard.helper;
+				PRODUCT_NAME = ChargeGuardHelper;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = Helper/SMCBridge.h;
+			};
+			name = Release;
+		};
+		30AE589FF6B8F95FB3B5DEE9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		50A5027604F9D759ECBC5D9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard.helper;
+				PRODUCT_NAME = ChargeGuardHelper;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = Helper/SMCBridge.h;
+			};
+			name = Debug;
+		};
+		5BD05E4A72D25AEA824DC457 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		8C7133D34FC74E52906F7053 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		B3DC6BAA6225E05556EEA62B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4766E74898DA11E5E0942F9A /* Build configuration list for PBXNativeTarget "ChargeGuard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3DC6BAA6225E05556EEA62B /* Debug */,
+				5BD05E4A72D25AEA824DC457 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A69F7BFBE74FDD4B49C2D436 /* Build configuration list for PBXProject "ChargeGuard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C7133D34FC74E52906F7053 /* Debug */,
+				30AE589FF6B8F95FB3B5DEE9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A75DE8E05F74036E620E3C02 /* Build configuration list for PBXNativeTarget "ChargeGuardHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				50A5027604F9D759ECBC5D9A /* Debug */,
+				2E3E36D8CF0BFE15FB729FAF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6822917938B5C38F53DD1F2B /* Project object */;
+}

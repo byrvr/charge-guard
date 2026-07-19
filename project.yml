@@ -1,0 +1,69 @@
+name: ChargeGuard
+options:
+  bundleIdPrefix: dev.byrvr
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+    DEAD_CODE_STRIPPING: "YES"
+
+targets:
+  ChargeGuardHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - Helper
+      - Shared
+    settings:
+      base:
+        PRODUCT_NAME: ChargeGuardHelper
+        PRODUCT_BUNDLE_IDENTIFIER: dev.byrvr.ChargeGuard.helper
+        SWIFT_OBJC_BRIDGING_HEADER: Helper/SMCBridge.h
+
+  ChargeGuard:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Shared
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: ChargeGuard
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: "MIT License — github.com/byrvr/charge-guard"
+    dependencies:
+      - target: ChargeGuardHelper
+        embed: false
+    postBuildScripts:
+      - name: Embed Privileged Helper
+        script: |
+          set -e
+          APP="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
+          mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Library/LaunchDaemons"
+          cp "${BUILT_PRODUCTS_DIR}/ChargeGuardHelper" "${APP}/Contents/MacOS/"
+          cp "${SRCROOT}/Config/dev.byrvr.ChargeGuard.helper.plist" \
+             "${APP}/Contents/Library/LaunchDaemons/"
+        inputFiles:
+          - $(BUILT_PRODUCTS_DIR)/ChargeGuardHelper
+          - $(SRCROOT)/Config/dev.byrvr.ChargeGuard.helper.plist
+        outputFiles:
+          - $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/MacOS/ChargeGuardHelper
+          - $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Library/LaunchDaemons/dev.byrvr.ChargeGuard.helper.plist
+
+schemes:
+  ChargeGuard:
+    build:
+      targets:
+        ChargeGuard: all
+    run:
+      config: Debug
