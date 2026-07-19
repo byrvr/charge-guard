@@ -13,6 +13,10 @@ xcuserdata/
 .build/
 .swiftpm/
 
+# Release build output
+.build-release/
+dist/
+
 # macOS
 .DS_Store
 
