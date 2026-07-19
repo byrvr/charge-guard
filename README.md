@@ -38,6 +38,11 @@ inhibit battery charging entirely. With charging inhibited, the adapter
 carries only system load (~10–30W) — which even a weak charger can sustain.
 ChargeGuard builds a control loop on top of that lever.
 
+There is also an **opt-in experimental path** that goes further — driving the
+Type-C controller to renegotiate the PD contract down to a lower advertised
+profile so the battery keeps charging at a reduced budget. See
+[PD downshift](#experimental-pd-downshift-opt-in) below.
+
 ## How it works
 
 ```mermaid
@@ -72,6 +77,39 @@ half hour amid constant disconnects* to *~10% per half hour, quietly*.
   verdicts after an overnight lid-close).
 - SMC writes are restricted to the single key `CHTE`, with layout
   validation before writing and an authoritative read-back after.
+
+## Experimental: PD downshift (opt-in)
+
+Chargers advertise a menu of PD profiles (this project's test charger offers
+15 / 27 / 36 / 45 / 65 W). macOS always negotiates the top one and exposes no
+override — so a mis-rated 65 W charger is asked for 65 W it can't hold.
+
+ChargeGuard can drive the Type-C controller (`AppleHPM` → TI CD3217) to
+renegotiate **down** to a lower advertised profile, so the battery keeps
+charging at a budget the charger can actually sustain — the real fix, versus
+merely pausing charging. It is **off by default** and built to be
+recoverable, not merely hopeful:
+
+- **Read-only probe first.** Enabling it runs a probe that opens and unlocks
+  the controller (the same operations `macvdmtool` performs safely) and
+  *reads* the active-contract and sink-policy registers, validating both
+  decode as the expected layout. Only then is the write path unlocked; if
+  your controller differs it refuses, and you stay on the charge-inhibit
+  guard.
+- **Volatile only, structurally.** The C bridge can write just two RAM policy
+  registers and issue only five whitelisted commands — flash/OTP tasks (the
+  only permanent-brick class) are impossible to reach. The worst realistic
+  failure is a disrupted port that a reboot clears.
+- **Self-verifying + always recoverable.** The original register bytes are
+  saved to disk before the first write; every downshift reads the contract
+  back and auto-reverts on any anomaly; disengage, shutdown, and a
+  crash-recovery pass on the next launch all restore from those saved bytes.
+- **Watchdogged.** PD calls run behind a hard deadline off the engine queue,
+  so a wedged controller call can never freeze the guard or block shutdown.
+
+Enable it under Settings → *Experimental: lower the charge budget*, and run
+**Probe Controller** first. It drives an undocumented controller —
+recoverable by design, but use at your own risk.
 
 ## Architecture
 
