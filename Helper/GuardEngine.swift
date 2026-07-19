@@ -22,6 +22,19 @@ final class GuardEngine {
     private(set) var config: GuardConfig
     private let smc: SMCService
     private let monitor: PowerMonitor
+    private let pd = PDController()
+
+    // PD-downshift state. `pdConfirmed` gates writes: it is only set by a
+    // successful read-only probe. `pdActiveWatts` records an applied
+    // downshift so it can be restored on disengage.
+    private var pdConfirmed = false
+    private var pdActiveWatts: Int?
+    private var pdStatus = ""
+    private var lastPDReapplyAt: TimeInterval = 0
+    // PD IOKit calls are synchronous and could, in the worst case, wedge in
+    // the kernel. They run on their own queue behind a hard deadline so the
+    // engine/XPC/shutdown queue is never blocked for longer than that.
+    private let pdQueue = DispatchQueue(label: "dev.byrvr.ChargeGuard.pd")
 
     private var mode: GuardMode = .observing
     private var isOnAC = false
@@ -58,6 +71,10 @@ final class GuardEngine {
         // behind from a previous unclean exit.
         try? smc.setChargingInhibited(false)
         recoverStaleLPM()
+        // If a PD cap survived an unclean exit, restore the original policy.
+        // No-op unless a marker exists, so users who never enabled downshift
+        // never touch the PD write path on boot.
+        _ = pdBounded(8, false) { [pd] in pd.recoverFromCrashIfNeeded(); return true }
 
         let snap = PowerMonitor.snapshot()
         isOnAC = snap.isOnAC
@@ -170,6 +187,26 @@ final class GuardEngine {
         case .guarding:
             if !isOnAC, now - lastACSeen > 300 {
                 disengageGuard("adapter removed for >5 min")
+            } else if let target = pdActiveWatts, isOnAC {
+                // PD-downshift mode is a stable end state — charging
+                // continues at the lower budget. Re-apply if a renegotiation
+                // (e.g. a brief flap) reset the contract back up, but no more
+                // than once a minute so we never churn the controller.
+                if Int(smc.adapterWatts().rounded()) > target + 5,
+                   now - lastPDReapplyAt >= 60 {
+                    lastPDReapplyAt = now
+                    if !attemptPDDownshift() {
+                        // PD downshift stopped working — fall back to the
+                        // proven charge-inhibit guard instead of silently
+                        // providing no protection.
+                        log(.warning, "PD downshift no longer holds — "
+                            + "falling back to charge-inhibit")
+                        pdActiveWatts = nil
+                        inhibit(true)
+                        backoff = config.probeAfter
+                        nextProbeAt = now + backoff
+                    }
+                }
             } else if isOnAC, now >= nextProbeAt {
                 startProbe(now)
             }
@@ -184,6 +221,19 @@ final class GuardEngine {
     // MARK: - State transitions
 
     private func engageGuard(_ now: TimeInterval) {
+        // Preferred path: renegotiate the PD contract down so the charger
+        // only has to sustain a lower budget while the battery keeps
+        // charging. Only attempted when the user opted in AND a probe has
+        // confirmed the controller layout on this machine. Any failure falls
+        // through to the safe charge-inhibit guard.
+        if config.experimentalPDDownshift, pdConfirmed,
+           attemptPDDownshift() {
+            engageLPM()
+            mode = .guarding
+            backoff = config.probeAfter
+            nextProbeAt = now + backoff
+            return
+        }
         log(.guardOn, "charger flapping — inhibiting charging")
         inhibit(true)
         engageLPM()
@@ -192,8 +242,59 @@ final class GuardEngine {
         nextProbeAt = now + backoff
     }
 
+    /// Runs blocking PD work on `pdQueue` with a hard deadline. On timeout the
+    /// worker thread may stay blocked in the kernel, but the engine queue is
+    /// never held longer than `seconds`; subsequent PD ops serialize behind
+    /// the wedged one and also time out, disabling PD (CHTE takes over).
+    private func pdBounded<T>(_ seconds: Double, _ fallback: T,
+                              _ work: @escaping () -> T) -> T {
+        let holder = Atomic<T>(fallback)
+        let sem = DispatchSemaphore(value: 0)
+        pdQueue.async { holder.set(work()); sem.signal() }
+        _ = sem.wait(timeout: .now() + seconds)
+        return holder.value
+    }
+
+    /// Returns true if a downshift is now applied.
+    private func attemptPDDownshift() -> Bool {
+        let expected = Int(smc.adapterWatts().rounded())
+        guard expected > config.pdTargetWatts else { return false }
+        let target = config.pdTargetWatts
+        let result = pdBounded(12, PDDownshiftResult.refused(reason: "timed out"))
+            { [pd] in pd.downshift(targetWatts: target, expectedWatts: expected) }
+        switch result {
+        case .success(let c):
+            pdActiveWatts = c.watts
+            lastPDReapplyAt = Self.uptime()
+            pdStatus = "downshifted to \(c.watts)W (\(c.millivolts / 1000)V)"
+            log(.guardOn, "PD renegotiated to \(c.watts)W — charging "
+                + "continues at the lower budget")
+            return true
+        case .didNotStick(let restored, let verified):
+            pdStatus = "downshift did not stick"
+            log(.warning, "PD downshift did not stick"
+                + (restored.map { " (restored \($0.watts)W)" } ?? "")
+                + (verified ? "" : " [restore unverified — will retry on "
+                    + "disengage]")
+                + " — using charge-inhibit guard")
+            return false
+        case .refused(let why):
+            pdStatus = "downshift refused: \(why)"
+            log(.warning, "PD downshift refused: \(why)")
+            return false
+        }
+    }
+
     private func disengageGuard(_ reason: String) {
         log(.guardOff, "\(reason) — charging enabled")
+        // Restore whenever a cap MIGHT be applied (marker-driven inside the
+        // controller), not only when pdActiveWatts is set — a failed
+        // downshift can leave a cap with pdActiveWatts == nil.
+        let restored = pdBounded(8, false) { [pd] in pd.restoreFullContract() }
+        if pdActiveWatts != nil || !restored {
+            pdActiveWatts = nil
+            pdStatus = "restored full contract"
+        }
         inhibit(false)
         restoreLPM()
         mode = .observing
@@ -240,6 +341,9 @@ final class GuardEngine {
     /// external write or a rejected write cannot silently defeat the guard.
     private func reconcileInhibit() {
         guard mode != .observing else { return }
+        // In PD-downshift mode charging stays ON at a lower contract, so the
+        // CHTE gate must not be touched.
+        guard pdActiveWatts == nil else { return }
         let want = (mode == .guarding)
         if let actual = try? smc.isChargingInhibited(), actual != want {
             log(.warning, "CHTE drifted (\(actual ? "inhibited" : "enabled")) " +
@@ -352,6 +456,9 @@ final class GuardEngine {
             s.chargeCurrentMA = smc.chargeCurrentMA()
             s.recentAttaches = attachTimes.count
             s.currentBackoff = backoff
+            s.pdStatus = pdStatus
+            s.pdConfirmed = pdConfirmed
+            s.pdActiveWatts = pdActiveWatts
             if mode == .guarding {
                 s.nextProbeIn = max(0, nextProbeAt - Self.uptime())
             }
@@ -375,8 +482,38 @@ final class GuardEngine {
     func shutdown() {
         queue.sync {
             log(.info, "terminating — re-enabling charging")
+            _ = pdBounded(8, false) { [pd] in pd.restoreFullContract() }
+            pdActiveWatts = nil
             inhibit(false)
             restoreLPM()
+        }
+    }
+
+    /// Runs the read-only PD probe and records whether writes can be trusted.
+    func runPDProbe() -> String {
+        queue.sync {
+            let expected = Int(smc.adapterWatts().rounded())
+            guard expected > 0 else {
+                pdStatus = "no adapter attached — plug in the charger first"
+                return pdStatus
+            }
+            let result = pdBounded(8,
+                PDProbeResult.unavailable(reason: "probe timed out"))
+                { [pd] in pd.probe(expectedWatts: expected) }
+            switch result {
+            case .confirmed(let active, _):
+                pdConfirmed = true
+                pdStatus = "confirmed: controller speaks standard PD layout "
+                    + "(active \(active.watts)W). Downshift can be enabled."
+            case .layoutMismatch(let why):
+                pdConfirmed = false
+                pdStatus = "layout mismatch — downshift unsafe here (\(why))"
+            case .unavailable(let why):
+                pdConfirmed = false
+                pdStatus = "controller unavailable (\(why))"
+            }
+            log(.info, "PD probe: \(pdStatus)")
+            return pdStatus
         }
     }
 
@@ -429,5 +566,14 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.1.0"
+    static let current = "0.2.0"
+}
+
+/// Minimal lock-guarded box for handing a result back from `pdQueue`.
+final class Atomic<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: T
+    init(_ value: T) { _value = value }
+    var value: T { lock.lock(); defer { lock.unlock() }; return _value }
+    func set(_ v: T) { lock.lock(); _value = v; lock.unlock() }
 }

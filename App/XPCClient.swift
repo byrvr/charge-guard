@@ -119,4 +119,10 @@ final class XPCClient {
             p.forceCharging { reply($0) }
         }
     }
+
+    func probePDController() async -> String {
+        await call(fallback: "helper unreachable") { p, reply in
+            p.probePDController { reply($0) }
+        }
+    }
 }

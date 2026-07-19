@@ -45,6 +45,41 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                Toggle("Prefer PD downshift over pausing charging",
+                       isOn: $appState.config.experimentalPDDownshift)
+                    .disabled(!(appState.status?.pdConfirmed ?? false))
+                Picker("Target budget", selection: $appState.config.pdTargetWatts) {
+                    Text("45 W").tag(45)
+                    Text("36 W").tag(36)
+                    Text("27 W").tag(27)
+                }
+                .disabled(!(appState.status?.pdConfirmed ?? false))
+                HStack {
+                    Button("Probe Controller") { appState.probePD() }
+                    Spacer()
+                    if let s = appState.status, s.pdConfirmed {
+                        Label("confirmed", systemImage: "checkmark.seal")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if let r = appState.pdProbeResult ?? nonEmpty(appState.status?.pdStatus) {
+                    Text(r).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } header: {
+                Text("Experimental: lower the charge budget")
+            } footer: {
+                Text("Instead of pausing charging, renegotiate the USB-C "
+                     + "power contract to a lower profile so the battery "
+                     + "keeps charging on a weak charger. Run Probe first — "
+                     + "it read-checks that your Mac's port controller uses "
+                     + "the expected layout. Writes are volatile (a reboot "
+                     + "undoes anything) and auto-revert, but this drives an "
+                     + "undocumented controller: use at your own risk.")
+                    .font(.caption2)
+            }
+
             Section("Helper") {
                 LabeledContent("Daemon",
                                value: helperDescription)
@@ -64,6 +99,11 @@ struct SettingsView: View {
         // Push on every edit — onDisappear alone loses changes when the
         // process exits while the window is open (quit, logout).
         .onChange(of: appState.config) { _, _ in appState.push() }
+    }
+
+    private func nonEmpty(_ s: String?) -> String? {
+        guard let s, !s.isEmpty else { return nil }
+        return s
     }
 
     private var helperDescription: String {

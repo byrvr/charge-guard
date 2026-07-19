@@ -24,7 +24,7 @@ targets:
       base:
         PRODUCT_NAME: ChargeGuardHelper
         PRODUCT_BUNDLE_IDENTIFIER: dev.byrvr.ChargeGuard.helper
-        SWIFT_OBJC_BRIDGING_HEADER: Helper/SMCBridge.h
+        SWIFT_OBJC_BRIDGING_HEADER: Helper/BridgingHeader.h
 
   ChargeGuard:
     type: application
@@ -39,8 +39,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: ChargeGuard
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "2"
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: "MIT License — github.com/byrvr/chargeguard"

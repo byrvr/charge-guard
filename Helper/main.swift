@@ -71,6 +71,10 @@ final class XPCDelegate: NSObject, NSXPCListenerDelegate, ChargeGuardXPC {
         engine.forceChargingOn()
         reply(true)
     }
+
+    func probePDController(reply: @escaping (String) -> Void) {
+        reply(engine.runPDProbe())
+    }
 }
 
 // MARK: - Bootstrap

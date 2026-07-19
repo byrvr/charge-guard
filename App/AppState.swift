@@ -123,4 +123,15 @@ final class AppState: ObservableObject {
             await refreshOnce()
         }
     }
+
+    @Published var pdProbeResult: String?
+
+    func probePD() {
+        pdProbeResult = "Probing…"
+        Task {
+            let result = await xpc.probePDController()
+            pdProbeResult = result
+            await refreshOnce()
+        }
+    }
 }

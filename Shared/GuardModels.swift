@@ -30,6 +30,15 @@ public struct GuardConfig: Codable, Equatable, Sendable {
     /// Engage AC Low Power Mode while guarding.
     public var useLowPowerMode: Bool = true
 
+    /// EXPERIMENTAL: when guarding, try to renegotiate the USB-C PD contract
+    /// down to `pdTargetWatts` (driving the Type-C controller) instead of
+    /// inhibiting charging. Off by default; only takes effect after a probe
+    /// confirms this machine's controller uses the standard register layout.
+    public var experimentalPDDownshift: Bool = false
+    /// Target power budget for the downshift (nearest advertised rail at or
+    /// below this is chosen: 45W/36W/27W).
+    public var pdTargetWatts: Int = 45
+
     public init() {}
 
     /// Clamps every field to a sane range. The helper applies this to any
@@ -46,6 +55,7 @@ public struct GuardConfig: Codable, Equatable, Sendable {
         c.swapGap = min(max(c.swapGap, 5), 300)
         c.swapProbeDelay = min(max(c.swapProbeDelay, 10), 600)
         c.retriggerWindow = min(max(c.retriggerWindow, 0), 3600)
+        c.pdTargetWatts = min(max(c.pdTargetWatts, 27), 60)
         return c
     }
 }
@@ -80,6 +90,12 @@ public struct GuardStatus: Codable, Sendable {
     public var nextProbeIn: TimeInterval?
     /// Current probe backoff, seconds.
     public var currentBackoff: TimeInterval = 0
+    /// Human-readable result of the last PD-downshift probe/attempt.
+    public var pdStatus: String = ""
+    /// True once a probe confirmed the controller's register layout.
+    public var pdConfirmed: Bool = false
+    /// Watts of an active PD downshift, if one is currently applied.
+    public var pdActiveWatts: Int?
     public var helperVersion: String = ""
 
     public init() {}

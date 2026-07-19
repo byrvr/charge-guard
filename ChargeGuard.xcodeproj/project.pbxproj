@@ -16,6 +16,8 @@
 		56B8652799A20D13FB4385EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FA2D6629F08C6E08A8D99BE /* AppState.swift */; };
 		5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
 		7174C5619E9D01C40DD477A8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65752A9C6AC9B06533E9189 /* SettingsView.swift */; };
+		7A3E9E9EAB06A858D74AB1FC /* PDController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0B4CAC4C5E2EC6C9B4C477 /* PDController.swift */; };
+		99F103CAA1FC18AE106FC45B /* PDBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 1AD7B9A995A995F17F7CD10E /* PDBridge.c */; };
 		A075BDF185CC64EDF3EE9CCA /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
 		A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */; };
 		A73206B49B8B138260831B86 /* HelperManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016FCB2270CC9143194783D3 /* HelperManager.swift */; };
@@ -40,7 +42,9 @@
 		06F42DAD8FD621D2D8649C77 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerMonitor.swift; sourceTree = "<group>"; };
+		1AD7B9A995A995F17F7CD10E /* PDBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = PDBridge.c; sourceTree = "<group>"; };
 		249DF50A817230216A4CA629 /* SMCBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SMCBridge.h; sourceTree = "<group>"; };
+		2C0B4CAC4C5E2EC6C9B4C477 /* PDController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDController.swift; sourceTree = "<group>"; };
 		2EEACD198A006EB860CD64F2 /* GuardModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardModels.swift; sourceTree = "<group>"; };
 		3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChargeGuard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngine.swift; sourceTree = "<group>"; };
@@ -48,7 +52,9 @@
 		6CF52581B2F94E2296D90274 /* ChargeGuardHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = ChargeGuardHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		6DB8AF3172C77AFA22C35FFF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7FA2D6629F08C6E08A8D99BE /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		AA63741214E921D143642F76 /* PDBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PDBridge.h; sourceTree = "<group>"; };
 		B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargeGuardApp.swift; sourceTree = "<group>"; };
+		B2294D071CFABC2716BE214F /* BridgingHeader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BridgingHeader.h; sourceTree = "<group>"; };
 		C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClient.swift; sourceTree = "<group>"; };
 		D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCService.swift; sourceTree = "<group>"; };
 		E20016A61A73025BCB658D7D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -70,8 +76,12 @@
 		2C4B5813CFF7268C2526F5B2 /* Helper */ = {
 			isa = PBXGroup;
 			children = (
+				B2294D071CFABC2716BE214F /* BridgingHeader.h */,
 				3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */,
 				06F42DAD8FD621D2D8649C77 /* main.swift */,
+				1AD7B9A995A995F17F7CD10E /* PDBridge.c */,
+				AA63741214E921D143642F76 /* PDBridge.h */,
+				2C0B4CAC4C5E2EC6C9B4C477 /* PDController.swift */,
 				172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */,
 				605B11518543B0ADE922726C /* SMCBridge.c */,
 				249DF50A817230216A4CA629 /* SMCBridge.h */,
@@ -241,6 +251,8 @@
 			files = (
 				12E3112230981FABDDD96E70 /* GuardEngine.swift in Sources */,
 				E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */,
+				99F103CAA1FC18AE106FC45B /* PDBridge.c in Sources */,
+				7A3E9E9EAB06A858D74AB1FC /* PDController.swift in Sources */,
 				C4E8D6A7FCDBDED8C6B87B73 /* PowerMonitor.swift in Sources */,
 				D1177F354D514815F2007D6B /* SMCBridge.c in Sources */,
 				308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */,
@@ -286,7 +298,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard.helper;
 				PRODUCT_NAME = ChargeGuardHelper;
 				SDKROOT = macosx;
-				SWIFT_OBJC_BRIDGING_HEADER = Helper/SMCBridge.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Helper/BridgingHeader.h;
 			};
 			name = Release;
 		};
@@ -360,7 +372,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard.helper;
 				PRODUCT_NAME = ChargeGuardHelper;
 				SDKROOT = macosx;
-				SWIFT_OBJC_BRIDGING_HEADER = Helper/SMCBridge.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Helper/BridgingHeader.h;
 			};
 			name = Debug;
 		};
