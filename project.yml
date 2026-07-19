@@ -43,7 +43,7 @@ targets:
         CFBundleVersion: "1"
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
-        NSHumanReadableCopyright: "MIT License — github.com/byrvr/charge-guard"
+        NSHumanReadableCopyright: "MIT License — github.com/byrvr/chargeguard"
         CFBundleIconName: AppIcon
     dependencies:
       - target: ChargeGuardHelper

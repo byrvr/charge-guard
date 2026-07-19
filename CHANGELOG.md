@@ -20,4 +20,4 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   manual "Charge Now" override.
 - Optional AC Low Power Mode while guarding.
 
-[0.1.0]: https://github.com/byrvr/charge-guard/releases/tag/v0.1.0
+[0.1.0]: https://github.com/byrvr/chargeguard/releases/tag/v0.1.0

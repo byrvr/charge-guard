@@ -1,6 +1,6 @@
 # ⚡🛡 ChargeGuard
 
-[![CI](https://github.com/byrvr/charge-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/byrvr/charge-guard/actions/workflows/ci.yml)
+[![CI](https://github.com/byrvr/chargeguard/actions/workflows/ci.yml/badge.svg)](https://github.com/byrvr/chargeguard/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-blue)](#requirements)
 [![Swift](https://img.shields.io/badge/swift-5.9-orange)](#building)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -97,8 +97,8 @@ from IOKit notifications (`IOPSNotificationCreateRunLoopSource`,
 
 ```sh
 brew install xcodegen
-git clone https://github.com/byrvr/charge-guard.git
-cd charge-guard
+git clone https://github.com/byrvr/chargeguard.git
+cd chargeguard
 xcodegen            # regenerates ChargeGuard.xcodeproj from project.yml
 open ChargeGuard.xcodeproj
 ```
