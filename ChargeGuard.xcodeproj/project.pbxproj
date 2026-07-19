@@ -19,6 +19,7 @@
 		A075BDF185CC64EDF3EE9CCA /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
 		A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */; };
 		A73206B49B8B138260831B86 /* HelperManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016FCB2270CC9143194783D3 /* HelperManager.swift */; };
+		B7C45E7D8B1B25C412734D01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E20016A61A73025BCB658D7D /* Assets.xcassets */; };
 		C4E8D6A7FCDBDED8C6B87B73 /* PowerMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */; };
 		D1177F354D514815F2007D6B /* SMCBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 605B11518543B0ADE922726C /* SMCBridge.c */; };
 		E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
@@ -50,6 +51,7 @@
 		B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargeGuardApp.swift; sourceTree = "<group>"; };
 		C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClient.swift; sourceTree = "<group>"; };
 		D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCService.swift; sourceTree = "<group>"; };
+		E20016A61A73025BCB658D7D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCProtocol.swift; sourceTree = "<group>"; };
 		F65752A9C6AC9B06533E9189 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -109,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				7FA2D6629F08C6E08A8D99BE /* AppState.swift */,
+				E20016A61A73025BCB658D7D /* Assets.xcassets */,
 				B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */,
 				016FCB2270CC9143194783D3 /* HelperManager.swift */,
 				6DB8AF3172C77AFA22C35FFF /* Info.plist */,
@@ -143,6 +146,7 @@
 			buildConfigurationList = 4766E74898DA11E5E0942F9A /* Build configuration list for PBXNativeTarget "ChargeGuard" */;
 			buildPhases = (
 				4A0F92198C118D4EB5B55875 /* Sources */,
+				4CA80897EA0E420803E5A89C /* Resources */,
 				25D22009A6C63991ED975953 /* Embed Privileged Helper */,
 			);
 			buildRules = (
@@ -193,6 +197,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4CA80897EA0E420803E5A89C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B7C45E7D8B1B25C412734D01 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		25D22009A6C63991ED975953 /* Embed Privileged Helper */ = {

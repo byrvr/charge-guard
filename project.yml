@@ -32,6 +32,9 @@ targets:
     sources:
       - App
       - Shared
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: App/Info.plist
       properties:
@@ -41,6 +44,7 @@ targets:
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: "MIT License — github.com/byrvr/charge-guard"
+        CFBundleIconName: AppIcon
     dependencies:
       - target: ChargeGuardHelper
         embed: false
