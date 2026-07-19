@@ -33,6 +33,10 @@ struct SettingsView: View {
             }
 
             Section("Extras") {
+                Toggle("Start ChargeGuard at login",
+                       isOn: Binding(
+                        get: { appState.launchAtLogin },
+                        set: { appState.setLaunchAtLogin($0) }))
                 Toggle("Use AC Low Power Mode while guarding",
                        isOn: $appState.config.useLowPowerMode)
                 Text("Reduces the Mac's own draw so a weak charger has " +

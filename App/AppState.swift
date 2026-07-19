@@ -38,6 +38,19 @@ final class AppState: ObservableObject {
 
     func refreshHelperState() {
         helperState = helper.state
+        launchAtLogin = HelperManager.launchAtLogin
+    }
+
+    @Published var launchAtLogin = false
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            try HelperManager.setLaunchAtLogin(enabled)
+            lastError = nil
+        } catch {
+            lastError = "Launch at login: " + error.localizedDescription
+        }
+        launchAtLogin = HelperManager.launchAtLogin
     }
 
     func installHelper() {

@@ -102,4 +102,20 @@ final class SMCService {
         guard let r = try? read("CHBI") else { return 0 }
         return Int(Self.littleEndianValue(r.bytes))
     }
+
+    private static let fltFourCC: UInt32 = {
+        var v: UInt32 = 0
+        for c in "flt ".utf8 { v = (v << 8) | UInt32(c) }
+        return v
+    }()
+
+    /// Live power drawn from the adapter in watts (PDTR), nil when the key
+    /// is unavailable or not the expected float layout.
+    func inputPowerWatts() -> Double? {
+        guard let r = try? read("PDTR"), r.type == Self.fltFourCC,
+              r.bytes.count == 4 else { return nil }
+        let bits = r.bytes.withUnsafeBytes { $0.load(as: UInt32.self) }
+        let value = Double(Float(bitPattern: UInt32(littleEndian: bits)))
+        return value.isFinite && value >= 0 && value < 1000 ? value : nil
+    }
 }

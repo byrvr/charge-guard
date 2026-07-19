@@ -348,6 +348,7 @@ final class GuardEngine {
             s.isCharging = snap.isCharging
             s.chargingInhibited = (try? smc.isChargingInhibited()) ?? false
             s.adapterWatts = smc.adapterWatts()
+            s.inputWatts = smc.inputPowerWatts()
             s.chargeCurrentMA = smc.chargeCurrentMA()
             s.recentAttaches = attachTimes.count
             s.currentBackoff = backoff

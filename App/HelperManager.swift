@@ -42,4 +42,18 @@ final class HelperManager {
     static func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
     }
+
+    // MARK: - Launch the menu bar app itself at login
+
+    static var launchAtLogin: Bool {
+        SMAppService.mainApp.status == .enabled
+    }
+
+    static func setLaunchAtLogin(_ enabled: Bool) throws {
+        if enabled {
+            try SMAppService.mainApp.register()
+        } else {
+            try SMAppService.mainApp.unregister()
+        }
+    }
 }

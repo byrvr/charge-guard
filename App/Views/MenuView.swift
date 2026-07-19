@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MenuView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -49,6 +50,7 @@ struct MenuView: View {
                     get: { appState.config.protectionEnabled },
                     set: { appState.setProtection(enabled: $0) }))
                 .toggleStyle(.switch)
+                .controlSize(.small)
                 .labelsHidden()
                 .help("Protection on/off")
             }
@@ -89,7 +91,7 @@ struct MenuView: View {
                              "on AC, not charging" : "discharging"))
                     statCell("Adapter", s.adapterWatts > 0 ?
                              String(format: "%.0f W", s.adapterWatts) : "—",
-                             s.isOnAC ? "negotiated budget" : "not connected")
+                             adapterCaption(s))
                 }
                 GridRow {
                     statCell("Charge current",
@@ -102,6 +104,14 @@ struct MenuView: View {
                 }
             }
         }
+    }
+
+    private func adapterCaption(_ s: GuardStatus) -> String {
+        guard s.isOnAC else { return "not connected" }
+        if let draw = s.inputWatts {
+            return String(format: "drawing %.0f W now", draw)
+        }
+        return "negotiated budget"
     }
 
     private func statCell(_ title: String, _ value: String,
@@ -157,8 +167,17 @@ struct MenuView: View {
                           "re-engages if the charger flaps again")
             }
             Spacer()
-            SettingsLink { Image(systemName: "gearshape") }
-                .buttonStyle(.borderless)
+            // SettingsLink alone opens the window behind other apps when
+            // triggered from a menu bar panel (LSUIElement app is not
+            // active) — activate first, then open.
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .help("Settings")
             Button {
                 NSApp.terminate(nil)
             } label: {

@@ -70,6 +70,8 @@ public struct GuardStatus: Codable, Sendable {
     public var chargingInhibited: Bool = false
     /// Negotiated adapter power budget in watts (from SMC ACPW), 0 if none.
     public var adapterWatts: Double = 0
+    /// Live draw from the adapter in watts (from SMC PDTR), if readable.
+    public var inputWatts: Double?
     /// Battery charge current in mA (from SMC CHBI).
     public var chargeCurrentMA: Int = 0
     /// AC attaches seen within the flap window.
