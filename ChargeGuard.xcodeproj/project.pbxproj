@@ -240,7 +240,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nAPP=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nmkdir -p \"${APP}/Contents/MacOS\" \"${APP}/Contents/Library/LaunchDaemons\"\ncp \"${BUILT_PRODUCTS_DIR}/ChargeGuardHelper\" \"${APP}/Contents/MacOS/\"\ncp \"${SRCROOT}/Config/dev.byrvr.ChargeGuard.helper.plist\" \\\n   \"${APP}/Contents/Library/LaunchDaemons/\"\n";
+			shellScript = "set -e\nAPP=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nmkdir -p \"${APP}/Contents/MacOS\" \"${APP}/Contents/Library/LaunchDaemons\" \"${APP}/Contents/Resources\"\ncp \"${BUILT_PRODUCTS_DIR}/ChargeGuardHelper\" \"${APP}/Contents/MacOS/\"\ncp \"${SRCROOT}/Config/dev.byrvr.ChargeGuard.helper.plist\" \\\n   \"${APP}/Contents/Library/LaunchDaemons/\"\ncp \"${SRCROOT}/scripts/install-daemon.sh\" \"${SRCROOT}/scripts/uninstall-daemon.sh\" \\\n   \"${APP}/Contents/Resources/\"\nchmod +x \"${APP}/Contents/Resources/install-daemon.sh\" \"${APP}/Contents/Resources/uninstall-daemon.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

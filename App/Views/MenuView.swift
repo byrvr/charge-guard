@@ -126,36 +126,34 @@ struct MenuView: View {
 
     private var helperSetup: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("The privileged helper is not running.")
+            Text("The privileged helper isn't running yet.")
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("ChargeGuard needs a small root daemon to control the " +
-                 "SMC charging gate. Install it once, then approve it in " +
-                 "System Settings › Login Items.")
+            Text("ChargeGuard needs a small root daemon to control the SMC "
+                 + "charging gate. Install it once by running this in "
+                 + "Terminal:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if case .error(let message) = appState.helperState {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let err = appState.lastError {
-                Label(err, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(AppState.installCommand)
+                .font(.system(.caption2, design: .monospaced))
+                .textSelection(.enabled)
+                .padding(6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
             HStack {
-                Button("Install Helper") { appState.installHelper() }
+                Button("Copy Command") { appState.copyInstallCommand() }
                     .buttonStyle(.borderedProminent)
-                if appState.helperState == .requiresApproval {
-                    Button("Open Login Items") {
-                        HelperManager.openLoginItemsSettings()
-                    }
-                }
+                Text("then paste into Terminal and press Return")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
+            Text("The window will switch to live status a second after the "
+                 + "daemon starts. To remove it later: sudo "
+                 + "…/Resources/uninstall-daemon.sh")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

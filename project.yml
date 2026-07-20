@@ -53,10 +53,13 @@ targets:
         script: |
           set -e
           APP="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
-          mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Library/LaunchDaemons"
+          mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Library/LaunchDaemons" "${APP}/Contents/Resources"
           cp "${BUILT_PRODUCTS_DIR}/ChargeGuardHelper" "${APP}/Contents/MacOS/"
           cp "${SRCROOT}/Config/dev.byrvr.ChargeGuard.helper.plist" \
              "${APP}/Contents/Library/LaunchDaemons/"
+          cp "${SRCROOT}/scripts/install-daemon.sh" "${SRCROOT}/scripts/uninstall-daemon.sh" \
+             "${APP}/Contents/Resources/"
+          chmod +x "${APP}/Contents/Resources/install-daemon.sh" "${APP}/Contents/Resources/uninstall-daemon.sh"
         inputFiles:
           - $(BUILT_PRODUCTS_DIR)/ChargeGuardHelper
           - $(SRCROOT)/Config/dev.byrvr.ChargeGuard.helper.plist

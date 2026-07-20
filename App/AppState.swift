@@ -89,10 +89,16 @@ final class AppState: ObservableObject {
 
     func refreshOnce() async {
         refreshHelperState()
-        guard helperState == .enabled else { return }
-        if let s = await xpc.fetchStatus() {
+        // The helper is installed as a classic root LaunchDaemon, so its
+        // liveness is defined by XPC reachability — not by SMAppService,
+        // which cannot register ad-hoc-signed builds. A successful status
+        // call means the daemon is running.
+        let s = await xpc.fetchStatus()
+        if let s {
             status = s
+            helperState = .enabled
         }
+        guard helperState == .enabled else { return }
         events = await xpc.fetchEvents(limit: 60)
         if let c = await xpc.fetchConfig() {
             if syncedConfig == nil || config == syncedConfig {
@@ -100,6 +106,15 @@ final class AppState: ObservableObject {
             }
             syncedConfig = c
         }
+    }
+
+    /// The one-line command that installs the root daemon.
+    static let installCommand =
+        "sudo \"/Applications/ChargeGuard.app/Contents/Resources/install-daemon.sh\""
+
+    func copyInstallCommand() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(Self.installCommand, forType: .string)
     }
 
     func setProtection(enabled: Bool) {
