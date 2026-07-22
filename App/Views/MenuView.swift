@@ -217,9 +217,11 @@ struct EventLogView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Activity").font(.caption).foregroundStyle(.secondary)
             if events.isEmpty {
-                Text("No events yet.")
+                Text("Quiet so far — this logs when ChargeGuard pauses or "
+                     + "resumes charging.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 3) {
