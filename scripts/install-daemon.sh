@@ -1,7 +1,12 @@
 #!/bin/bash
 # Installs the ChargeGuard helper as a classic root LaunchDaemon, bypassing
 # SMAppService (whose code-signature checks reject ad-hoc-signed builds).
-# Run once with: sudo scripts/install-daemon.sh
+# Normally invoked by the app's "Install Helper" button, which runs it as root
+# behind the native macOS password dialog. Manual use:
+#   sudo scripts/install-daemon.sh [APP_PATH]
+# APP_PATH is the path to ChargeGuard.app; it defaults to /Applications so a
+# copy installed there Just Works, but the in-app button passes the running
+# bundle's path so a Debug build in DerivedData installs correctly too.
 set -euo pipefail
 
 if [ "$(id -u)" != 0 ]; then
@@ -9,7 +14,7 @@ if [ "$(id -u)" != 0 ]; then
   exit 1
 fi
 
-APP="/Applications/ChargeGuard.app"
+APP="${1:-/Applications/ChargeGuard.app}"
 SRC="$APP/Contents/MacOS/ChargeGuardHelper"
 DEST="/Library/PrivilegedHelperTools/dev.byrvr.ChargeGuard.helper"
 LABEL="dev.byrvr.ChargeGuard.daemon"

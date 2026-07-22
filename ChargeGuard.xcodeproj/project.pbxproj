@@ -15,6 +15,7 @@
 		27B6776267A10524E1F5838E /* XPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */; };
 		2F6583FF27A582AFA25F94D2 /* GuardEngineSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */; };
 		308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */; };
+		41E42E4AE267D014760572E8 /* PrivilegedInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 553A441CF6C0821597970BDA /* PrivilegedInstaller.swift */; };
 		56B8652799A20D13FB4385EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FA2D6629F08C6E08A8D99BE /* AppState.swift */; };
 		5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
 		69C24BC086D78338AD9BEA35 /* GuardEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23027D61413A25197BE04A21 /* GuardEngineTests.swift */; };
@@ -63,6 +64,7 @@
 		3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChargeGuard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngine.swift; sourceTree = "<group>"; };
 		438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngineSeams.swift; sourceTree = "<group>"; };
+		553A441CF6C0821597970BDA /* PrivilegedInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedInstaller.swift; sourceTree = "<group>"; };
 		605B11518543B0ADE922726C /* SMCBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SMCBridge.c; sourceTree = "<group>"; };
 		6CF52581B2F94E2296D90274 /* ChargeGuardHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = ChargeGuardHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		6DB8AF3172C77AFA22C35FFF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 				B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */,
 				016FCB2270CC9143194783D3 /* HelperManager.swift */,
 				6DB8AF3172C77AFA22C35FFF /* Info.plist */,
+				553A441CF6C0821597970BDA /* PrivilegedInstaller.swift */,
 				C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */,
 				6A4D870D78F772A4502F7CF9 /* Views */,
 			);
@@ -279,6 +282,8 @@
 			inputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/ChargeGuardHelper",
 				"$(SRCROOT)/Config/dev.byrvr.ChargeGuard.helper.plist",
+				"$(SRCROOT)/scripts/install-daemon.sh",
+				"$(SRCROOT)/scripts/uninstall-daemon.sh",
 			);
 			name = "Embed Privileged Helper";
 			outputFileListPaths = (
@@ -286,6 +291,8 @@
 			outputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/MacOS/ChargeGuardHelper",
 				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Library/LaunchDaemons/dev.byrvr.ChargeGuard.helper.plist",
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/install-daemon.sh",
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/uninstall-daemon.sh",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -338,6 +345,7 @@
 				A075BDF185CC64EDF3EE9CCA /* GuardModels.swift in Sources */,
 				A73206B49B8B138260831B86 /* HelperManager.swift in Sources */,
 				A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */,
+				41E42E4AE267D014760572E8 /* PrivilegedInstaller.swift in Sources */,
 				7174C5619E9D01C40DD477A8 /* SettingsView.swift in Sources */,
 				27B6776267A10524E1F5838E /* XPCClient.swift in Sources */,
 				0DB8B01F090A2CF824E69DBA /* XPCProtocol.swift in Sources */,

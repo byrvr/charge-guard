@@ -79,9 +79,13 @@ targets:
         inputFiles:
           - $(BUILT_PRODUCTS_DIR)/ChargeGuardHelper
           - $(SRCROOT)/Config/dev.byrvr.ChargeGuard.helper.plist
+          - $(SRCROOT)/scripts/install-daemon.sh
+          - $(SRCROOT)/scripts/uninstall-daemon.sh
         outputFiles:
           - $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/MacOS/ChargeGuardHelper
           - $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Library/LaunchDaemons/dev.byrvr.ChargeGuard.helper.plist
+          - $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/install-daemon.sh
+          - $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/uninstall-daemon.sh
 
 schemes:
   ChargeGuard:

@@ -12,6 +12,8 @@ final class AppState: ObservableObject {
     @Published var config = GuardConfig()
     @Published var helperState: HelperState = .notRegistered
     @Published var lastError: String?
+    /// Non-nil when the in-app helper install reported a problem to show.
+    @Published var installMessage: String?
 
     private let xpc = XPCClient()
     private let helper = HelperManager()
@@ -53,17 +55,24 @@ final class AppState: ObservableObject {
         launchAtLogin = HelperManager.launchAtLogin
     }
 
+    /// Installs the root helper behind the native admin-password dialog — no
+    /// Terminal. The NSAppleScript call blocks briefly while the system auth
+    /// sheet is up; on success the daemon starts under launchd and the poll
+    /// picks it up over XPC, flipping the panel to live status.
     func installHelper() {
         do {
-            try helper.register()
+            try PrivilegedInstaller.installHelper()
+            installMessage = nil
             lastError = nil
+        } catch PrivilegedInstallError.cancelled {
+            // User dismissed the password dialog — nothing to report.
         } catch {
-            lastError = "Helper registration failed: " +
-                error.localizedDescription
+            installMessage = error.localizedDescription
+            lastError = error.localizedDescription
         }
-        refreshHelperState()
-        if helperState == .requiresApproval {
-            HelperManager.openLoginItemsSettings()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            await refreshOnce()
         }
     }
 
@@ -108,9 +117,16 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// The one-line command that installs the root daemon.
-    static let installCommand =
-        "sudo \"/Applications/ChargeGuard.app/Contents/Resources/install-daemon.sh\""
+    /// Terminal fallback that installs the root daemon, pointed at the
+    /// actually-running app bundle (works from /Applications and from a Debug
+    /// build in DerivedData). The in-app "Install Helper" button is the
+    /// primary path; this is shown under a "Prefer Terminal?" disclosure.
+    static var installCommand: String {
+        let script = Bundle.main.url(forResource: "install-daemon",
+                                     withExtension: "sh")?.path
+            ?? "/Applications/ChargeGuard.app/Contents/Resources/install-daemon.sh"
+        return "sudo \"\(script)\" \"\(Bundle.main.bundlePath)\""
+    }
 
     func copyInstallCommand() {
         NSPasteboard.general.clearContents()

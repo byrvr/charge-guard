@@ -125,35 +125,49 @@ struct MenuView: View {
     }
 
     private var helperSetup: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("The privileged helper isn't running yet.")
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             Text("ChargeGuard needs a small root daemon to control the SMC "
-                 + "charging gate. Install it once by running this in "
-                 + "Terminal:")
+                 + "charging gate. Click Install and enter your Mac password "
+                 + "once — no Terminal needed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(AppState.installCommand)
-                .font(.system(.caption2, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-            HStack {
-                Button("Copy Command") { appState.copyInstallCommand() }
+            HStack(spacing: 8) {
+                Button("Install Helper…") { appState.installHelper() }
                     .buttonStyle(.borderedProminent)
-                Text("then paste into Terminal and press Return")
+                Text("you'll be asked for your password")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
-            Text("The window will switch to live status a second after the "
-                 + "daemon starts. To remove it later: sudo "
-                 + "…/Resources/uninstall-daemon.sh")
+            if let msg = appState.installMessage {
+                Label(msg, systemImage: "exclamationmark.triangle")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("The panel switches to live status a second after the daemon "
+                 + "starts.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
+            DisclosureGroup("Prefer Terminal?") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(AppState.installCommand)
+                        .font(.system(.caption2, design: .monospaced))
+                        .textSelection(.enabled)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary,
+                                    in: RoundedRectangle(cornerRadius: 6))
+                    Button("Copy Command") { appState.copyInstallCommand() }
+                        .controlSize(.small)
+                }
+                .padding(.top, 4)
+            }
+            .font(.caption2)
         }
     }
 
