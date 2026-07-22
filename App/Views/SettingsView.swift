@@ -179,12 +179,37 @@ struct SettingsView: View {
             })
     }
 
+    private enum PDCompat { case compatible, incompatible, unknown }
+
+    /// Raw probe/attempt text from the helper (or our own inline nudge).
+    private var pdRawMessage: String? {
+        if let r = appState.pdProbeResult, !r.isEmpty { return r }
+        if let s = appState.status?.pdStatus, !s.isEmpty { return s }
+        return nil
+    }
+
+    /// Three honest states: a probe that failed is "incompatible", not the same
+    /// as never having run one.
+    private var pdCompat: PDCompat {
+        if appState.status?.pdConfirmed == true { return .compatible }
+        let m = (pdRawMessage ?? "").lowercased()
+        if m.isEmpty || m.contains("probing") || m.contains("no adapter")
+            || m.contains("plug in") || m.contains("check compatibility") {
+            return .unknown
+        }
+        return .incompatible   // a real check ran and it isn't supported here
+    }
+
     private var compatibilityBadge: some View {
         Group {
-            if appState.status?.pdConfirmed == true {
+            switch pdCompat {
+            case .compatible:
                 Label("Compatible", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
-            } else {
+            case .incompatible:
+                Label("Not supported here", systemImage: "xmark.seal.fill")
+                    .foregroundStyle(.orange)
+            case .unknown:
                 Label("Not checked", systemImage: "questionmark.circle")
                     .foregroundStyle(.secondary)
             }
@@ -193,10 +218,27 @@ struct SettingsView: View {
         .labelStyle(.titleAndIcon)
     }
 
+    /// Plain-language version of the probe result for the settings panel.
     private var pdMessage: String? {
-        if let r = appState.pdProbeResult, !r.isEmpty { return r }
-        if let s = appState.status?.pdStatus, !s.isEmpty { return s }
-        return nil
+        guard let raw = pdRawMessage else { return nil }
+        let m = raw.lowercased()
+        if m.contains("probing") { return "Checking…" }
+        if appState.status?.pdConfirmed == true {
+            return "Your Mac supports slow charging — you can turn it on."
+        }
+        if m.contains("no adapter") || m.contains("plug in") {
+            return "Plug in your charger, then check again."
+        }
+        if m.contains("check compatibility") { return raw }  // our own nudge
+        if m.contains("layout mismatch") {
+            return "Slow charging isn't supported on this Mac's charger "
+                + "controller, so it stays off. Pause charging still works."
+        }
+        if m.contains("unavailable") {
+            return "Couldn't reach the charger controller — make sure a charger "
+                + "is plugged in, then check again."
+        }
+        return raw
     }
 
     // MARK: - General
