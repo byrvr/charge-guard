@@ -9,21 +9,33 @@
 /* Begin PBXBuildFile section */
 		0C02873CE6E400085241A4E9 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F42DAD8FD621D2D8649C77 /* main.swift */; };
 		0DB8B01F090A2CF824E69DBA /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
+		0DFB35C9254A7978F125F434 /* PowerMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */; };
 		12E3112230981FABDDD96E70 /* GuardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */; };
 		16C3B58544BEDA750BDC775B /* ChargeGuardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */; };
 		27B6776267A10524E1F5838E /* XPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D144AF2CBBE38893ACAF9D /* XPCClient.swift */; };
+		2F6583FF27A582AFA25F94D2 /* GuardEngineSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */; };
 		308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */; };
 		56B8652799A20D13FB4385EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FA2D6629F08C6E08A8D99BE /* AppState.swift */; };
 		5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
+		69C24BC086D78338AD9BEA35 /* GuardEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23027D61413A25197BE04A21 /* GuardEngineTests.swift */; };
 		7174C5619E9D01C40DD477A8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65752A9C6AC9B06533E9189 /* SettingsView.swift */; };
 		7A3E9E9EAB06A858D74AB1FC /* PDController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0B4CAC4C5E2EC6C9B4C477 /* PDController.swift */; };
+		7FC0965D40E79AADCDD9752C /* XPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */; };
+		857AEEA20DE281FE6FF4DCA4 /* SMCBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 605B11518543B0ADE922726C /* SMCBridge.c */; };
+		87956C1782A7B3B772A2091F /* GuardConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30C14E69C035D34234CCF1B /* GuardConfigTests.swift */; };
+		98FD215958EC20631590D6BA /* GuardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */; };
 		99F103CAA1FC18AE106FC45B /* PDBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 1AD7B9A995A995F17F7CD10E /* PDBridge.c */; };
 		A075BDF185CC64EDF3EE9CCA /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
 		A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */; };
 		A73206B49B8B138260831B86 /* HelperManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016FCB2270CC9143194783D3 /* HelperManager.swift */; };
 		B7C45E7D8B1B25C412734D01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E20016A61A73025BCB658D7D /* Assets.xcassets */; };
+		BBDC51F1B2483B2C1327467E /* PDController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0B4CAC4C5E2EC6C9B4C477 /* PDController.swift */; };
 		C4E8D6A7FCDBDED8C6B87B73 /* PowerMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */; };
+		CB1EDB0AC511C956C489B671 /* SMCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */; };
 		D1177F354D514815F2007D6B /* SMCBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 605B11518543B0ADE922726C /* SMCBridge.c */; };
+		D2223021B1F01BE59BE72152 /* GuardEngineSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */; };
+		DBC339E3C04327EFD22103B0 /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
+		DFB5C59836931962FF0F96E7 /* PDBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 1AD7B9A995A995F17F7CD10E /* PDBridge.c */; };
 		E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
 /* End PBXBuildFile section */
 
@@ -42,16 +54,20 @@
 		06F42DAD8FD621D2D8649C77 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		08CE9DE2CA8ABCB302CA6E97 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		172764ADD25649D7FFED3AF6 /* PowerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerMonitor.swift; sourceTree = "<group>"; };
+		1A3177C529FB7425C3617A95 /* ChargeGuardHelperTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChargeGuardHelperTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AD7B9A995A995F17F7CD10E /* PDBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = PDBridge.c; sourceTree = "<group>"; };
+		23027D61413A25197BE04A21 /* GuardEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngineTests.swift; sourceTree = "<group>"; };
 		249DF50A817230216A4CA629 /* SMCBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SMCBridge.h; sourceTree = "<group>"; };
 		2C0B4CAC4C5E2EC6C9B4C477 /* PDController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDController.swift; sourceTree = "<group>"; };
 		2EEACD198A006EB860CD64F2 /* GuardModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardModels.swift; sourceTree = "<group>"; };
 		3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChargeGuard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngine.swift; sourceTree = "<group>"; };
+		438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardEngineSeams.swift; sourceTree = "<group>"; };
 		605B11518543B0ADE922726C /* SMCBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SMCBridge.c; sourceTree = "<group>"; };
 		6CF52581B2F94E2296D90274 /* ChargeGuardHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = ChargeGuardHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		6DB8AF3172C77AFA22C35FFF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7FA2D6629F08C6E08A8D99BE /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A30C14E69C035D34234CCF1B /* GuardConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardConfigTests.swift; sourceTree = "<group>"; };
 		AA63741214E921D143642F76 /* PDBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PDBridge.h; sourceTree = "<group>"; };
 		B09A65390E91EDB632F8890D /* ChargeGuardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargeGuardApp.swift; sourceTree = "<group>"; };
 		B2294D071CFABC2716BE214F /* BridgingHeader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BridgingHeader.h; sourceTree = "<group>"; };
@@ -69,6 +85,7 @@
 				E33C259D586C2FBF4DAAE51F /* App */,
 				2C4B5813CFF7268C2526F5B2 /* Helper */,
 				D23FAF91FCC31E824FF7D56D /* Shared */,
+				F56FE61377B2DAD5C908329C /* Tests */,
 				529AA1FAB619A904425A2A79 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -78,6 +95,7 @@
 			children = (
 				B2294D071CFABC2716BE214F /* BridgingHeader.h */,
 				3C99C6DE1A87AB47DA47400C /* GuardEngine.swift */,
+				438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */,
 				06F42DAD8FD621D2D8649C77 /* main.swift */,
 				1AD7B9A995A995F17F7CD10E /* PDBridge.c */,
 				AA63741214E921D143642F76 /* PDBridge.h */,
@@ -95,6 +113,7 @@
 			children = (
 				3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */,
 				6CF52581B2F94E2296D90274 /* ChargeGuardHelper */,
+				1A3177C529FB7425C3617A95 /* ChargeGuardHelperTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -129,6 +148,15 @@
 				6A4D870D78F772A4502F7CF9 /* Views */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		F56FE61377B2DAD5C908329C /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				A30C14E69C035D34234CCF1B /* GuardConfigTests.swift */,
+				23027D61413A25197BE04A21 /* GuardEngineTests.swift */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -171,6 +199,23 @@
 			productReference = 3123B1FA1474E73C6DE56FF2 /* ChargeGuard.app */;
 			productType = "com.apple.product-type.application";
 		};
+		83D61AB80F3D94E00A7116FC /* ChargeGuardHelperTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2E0E871E2FDF515A9C28C448 /* Build configuration list for PBXNativeTarget "ChargeGuardHelperTests" */;
+			buildPhases = (
+				41AB384A713D4499F019063A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ChargeGuardHelperTests;
+			packageProductDependencies = (
+			);
+			productName = ChargeGuardHelperTests;
+			productReference = 1A3177C529FB7425C3617A95 /* ChargeGuardHelperTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +229,9 @@
 						ProvisioningStyle = Automatic;
 					};
 					579A06A1D9586594E6D289AE = {
+						ProvisioningStyle = Automatic;
+					};
+					83D61AB80F3D94E00A7116FC = {
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -203,6 +251,7 @@
 			projectRoot = "";
 			targets = (
 				34B5E436B1C638725E77B0B5 /* ChargeGuardHelper */,
+				83D61AB80F3D94E00A7116FC /* ChargeGuardHelperTests */,
 				579A06A1D9586594E6D289AE /* ChargeGuard */,
 			);
 		};
@@ -250,6 +299,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				12E3112230981FABDDD96E70 /* GuardEngine.swift in Sources */,
+				2F6583FF27A582AFA25F94D2 /* GuardEngineSeams.swift in Sources */,
 				E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */,
 				99F103CAA1FC18AE106FC45B /* PDBridge.c in Sources */,
 				7A3E9E9EAB06A858D74AB1FC /* PDController.swift in Sources */,
@@ -258,6 +308,24 @@
 				308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */,
 				5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */,
 				0C02873CE6E400085241A4E9 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		41AB384A713D4499F019063A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87956C1782A7B3B772A2091F /* GuardConfigTests.swift in Sources */,
+				98FD215958EC20631590D6BA /* GuardEngine.swift in Sources */,
+				D2223021B1F01BE59BE72152 /* GuardEngineSeams.swift in Sources */,
+				69C24BC086D78338AD9BEA35 /* GuardEngineTests.swift in Sources */,
+				DBC339E3C04327EFD22103B0 /* GuardModels.swift in Sources */,
+				DFB5C59836931962FF0F96E7 /* PDBridge.c in Sources */,
+				BBDC51F1B2483B2C1327467E /* PDController.swift in Sources */,
+				0DFB35C9254A7978F125F434 /* PowerMonitor.swift in Sources */,
+				857AEEA20DE281FE6FF4DCA4 /* SMCBridge.c in Sources */,
+				CB1EDB0AC511C956C489B671 /* SMCService.swift in Sources */,
+				7FC0965D40E79AADCDD9752C /* XPCProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,6 +355,24 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0DFD5DBE0E57A06C3ED46DFD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard.helperTests;
+				PRODUCT_NAME = ChargeGuardHelperTests;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = Helper/BridgingHeader.h;
+			};
+			name = Debug;
+		};
 		2E3E36D8CF0BFE15FB729FAF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -472,9 +558,36 @@
 			};
 			name = Debug;
 		};
+		D3E3C69DFF154FEE2FDF42F6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.byrvr.ChargeGuard.helperTests;
+				PRODUCT_NAME = ChargeGuardHelperTests;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = Helper/BridgingHeader.h;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2E0E871E2FDF515A9C28C448 /* Build configuration list for PBXNativeTarget "ChargeGuardHelperTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0DFD5DBE0E57A06C3ED46DFD /* Debug */,
+				D3E3C69DFF154FEE2FDF42F6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		4766E74898DA11E5E0942F9A /* Build configuration list for PBXNativeTarget "ChargeGuard" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

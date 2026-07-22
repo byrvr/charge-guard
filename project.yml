@@ -26,6 +26,22 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.byrvr.ChargeGuard.helper
         SWIFT_OBJC_BRIDGING_HEADER: Helper/BridgingHeader.h
 
+  ChargeGuardHelperTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Helper
+        excludes:
+          - main.swift
+      - Shared
+      - Tests
+    settings:
+      base:
+        PRODUCT_NAME: ChargeGuardHelperTests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.byrvr.ChargeGuard.helperTests
+        SWIFT_OBJC_BRIDGING_HEADER: Helper/BridgingHeader.h
+        GENERATE_INFOPLIST_FILE: "YES"
+
   ChargeGuard:
     type: application
     platform: macOS
@@ -74,3 +90,10 @@ schemes:
         ChargeGuard: all
     run:
       config: Debug
+  ChargeGuardHelperTests:
+    build:
+      targets:
+        ChargeGuardHelperTests: [test]
+    test:
+      targets:
+        - ChargeGuardHelperTests

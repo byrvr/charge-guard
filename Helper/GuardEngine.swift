@@ -15,14 +15,29 @@
 //  All timing uses an uptime clock that pauses during system sleep, so
 //  slept time never counts toward flap windows or probe grace periods.
 //
+//  External dependencies (SMC, power monitor, PD controller, AC Low Power
+//  Mode, the uptime clock, and the on-disk state directory) are injected via
+//  the initializer. Every parameter defaults to the real system implementation
+//  so production construction is unchanged; tests supply in-memory fakes and a
+//  controllable clock to drive the machine deterministically.
+//
 
 import Foundation
 
 final class GuardEngine {
     private(set) var config: GuardConfig
-    private let smc: SMCService
-    private let monitor: PowerMonitor
-    private let pd = PDController()
+    private let smc: ChargeControlling
+    private let monitor: PowerMonitoring
+    private let pd: PDControlling
+
+    // Injection seams. `uptime` and `snapshot` replace the former static
+    // `Self.uptime()` / `PowerMonitor.snapshot()`; `powerMode` replaces the
+    // former `pmset` shell-outs; `stateDir` replaces the hard-coded
+    // /Library path. Defaults (see init) preserve production behavior exactly.
+    private let uptimeClock: () -> TimeInterval
+    private let snapshot: () -> PowerSnapshot
+    private let powerMode: PowerModeControlling
+    private let stateDir: URL
 
     // PD-downshift state. `pdConfirmed` gates writes: it is only set by a
     // successful read-only probe. `pdActiveWatts` records an applied
@@ -51,20 +66,36 @@ final class GuardEngine {
     private var timer: DispatchSourceTimer?
     private let queue = DispatchQueue(label: "dev.byrvr.ChargeGuard.engine")
 
-    private static let stateDir = URL(fileURLWithPath:
+    static let defaultStateDir = URL(fileURLWithPath:
         "/Library/Application Support/ChargeGuard")
-    private static let configURL = stateDir.appendingPathComponent("config.json")
-    private static let lpmURL = stateDir.appendingPathComponent("lpm.saved")
+    private var configURL: URL { stateDir.appendingPathComponent("config.json") }
+    private var lpmURL: URL { stateDir.appendingPathComponent("lpm.saved") }
 
     /// Seconds of machine uptime, excluding time spent asleep.
-    private static func uptime() -> TimeInterval {
+    static func systemUptime() -> TimeInterval {
         TimeInterval(clock_gettime_nsec_np(CLOCK_UPTIME_RAW)) / 1_000_000_000
     }
 
-    init(smc: SMCService, monitor: PowerMonitor) {
+    /// Uptime as seen by this engine instance (injectable for tests).
+    private func uptime() -> TimeInterval { uptimeClock() }
+
+    init(smc: ChargeControlling,
+         monitor: PowerMonitoring,
+         pd: PDControlling = PDController(),
+         powerMode: PowerModeControlling = PmsetPowerMode(),
+         uptime: @escaping () -> TimeInterval = GuardEngine.systemUptime,
+         snapshot: @escaping () -> PowerSnapshot = PowerMonitor.snapshot,
+         stateDir: URL = GuardEngine.defaultStateDir,
+         startTimer: Bool = true) {
         self.smc = smc
         self.monitor = monitor
-        self.config = Self.loadConfig()
+        self.pd = pd
+        self.powerMode = powerMode
+        self.uptimeClock = uptime
+        self.snapshot = snapshot
+        self.stateDir = stateDir
+        self.config = Self.loadConfig(from:
+            stateDir.appendingPathComponent("config.json"))
         self.backoff = config.probeAfter
 
         // Crash recovery: never leave a stale inhibit or Low Power Mode
@@ -76,9 +107,9 @@ final class GuardEngine {
         // never touch the PD write path on boot.
         _ = pdBounded(8, false) { [pd] in pd.recoverFromCrashIfNeeded(); return true }
 
-        let snap = PowerMonitor.snapshot()
+        let snap = snapshot()
         isOnAC = snap.isOnAC
-        if isOnAC { lastACSeen = Self.uptime() }
+        if isOnAC { lastACSeen = uptime() }
         log(.info, "engine started (source: \(isOnAC ? "AC" : "battery"), " +
             "battery \(snap.batteryPercent)%)")
 
@@ -90,17 +121,19 @@ final class GuardEngine {
         }
         monitor.start()
 
-        let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now() + 5, repeating: 5)
-        t.setEventHandler { [weak self] in self?.housekeeping() }
-        t.resume()
-        timer = t
+        if startTimer {
+            let t = DispatchSource.makeTimerSource(queue: queue)
+            t.schedule(deadline: .now() + 5, repeating: 5)
+            t.setEventHandler { [weak self] in self?.housekeeping() }
+            t.resume()
+            timer = t
+        }
     }
 
     // MARK: - Event handling
 
     private func powerSourceChanged(_ snap: PowerSnapshot) {
-        let now = Self.uptime()
+        let now = uptime()
         guard snap.isOnAC != isOnAC else { return }
         isOnAC = snap.isOnAC
         if isOnAC {
@@ -148,9 +181,9 @@ final class GuardEngine {
             log(.info, "system woke during a probe — voiding it")
             inhibit(true)
             mode = .guarding
-            nextProbeAt = Self.uptime() + backoff
+            nextProbeAt = uptime() + backoff
         }
-        let snap = PowerMonitor.snapshot()
+        let snap = snapshot()
         queueSourceRefresh(snap)
     }
 
@@ -161,11 +194,11 @@ final class GuardEngine {
     }
 
     private func housekeeping() {
-        let now = Self.uptime()
+        let now = uptime()
         pruneAttaches(now)
 
         // Poll fallback in case a notification was missed.
-        queueSourceRefresh(PowerMonitor.snapshot())
+        queueSourceRefresh(snapshot())
 
         // "Adapter removed" must measure time since AC was last PRESENT,
         // not since the last attach transition.
@@ -265,7 +298,7 @@ final class GuardEngine {
         switch result {
         case .success(let c):
             pdActiveWatts = c.watts
-            lastPDReapplyAt = Self.uptime()
+            lastPDReapplyAt = uptime()
             pdStatus = "downshifted to \(c.watts)W (\(c.millivolts / 1000)V)"
             log(.guardOn, "PD renegotiated to \(c.watts)W — charging "
                 + "continues at the lower budget")
@@ -299,14 +332,14 @@ final class GuardEngine {
         restoreLPM()
         mode = .observing
         attachTimes.removeAll()
-        lastGuardOff = Self.uptime()
+        lastGuardOff = uptime()
     }
 
     private func startProbe(_ now: TimeInterval) {
         mode = .probing
         probeDeadline = now + config.probeGrace
         inhibit(false)
-        let pct = PowerMonitor.snapshot().batteryPercent
+        let pct = snapshot().batteryPercent
         log(.probe, "probing: charging re-enabled for " +
             "\(Int(config.probeGrace))s (battery \(pct)%, " +
             "backoff was \(Int(backoff))s)")
@@ -354,76 +387,38 @@ final class GuardEngine {
 
     private func engageLPM() {
         guard config.useLowPowerMode, lpmBaseline == nil else { return }
-        let current = Self.readACLowPowerMode() ?? 0
+        let current = powerMode.readACLowPowerMode() ?? 0
         lpmBaseline = current
         // Persist the baseline BEFORE changing the setting, and never
         // overwrite an existing file: a crash-restart loop must not bake
         // the leaked "1" in as the user's baseline.
-        if !FileManager.default.fileExists(atPath: Self.lpmURL.path) {
+        if !FileManager.default.fileExists(atPath: lpmURL.path) {
             try? FileManager.default.createDirectory(
-                at: Self.stateDir, withIntermediateDirectories: true)
-            try? "\(current)".write(to: Self.lpmURL, atomically: true,
+                at: stateDir, withIntermediateDirectories: true)
+            try? "\(current)".write(to: lpmURL, atomically: true,
                                     encoding: .utf8)
         }
-        Self.pmset(["-c", "lowpowermode", "1"])
+        powerMode.setACLowPowerMode(1)
     }
 
     private func restoreLPM() {
         guard let baseline = lpmBaseline else { return }
-        Self.pmset(["-c", "lowpowermode", "\(baseline)"])
-        try? FileManager.default.removeItem(at: Self.lpmURL)
+        powerMode.setACLowPowerMode(baseline)
+        try? FileManager.default.removeItem(at: lpmURL)
         lpmBaseline = nil
     }
 
     private func recoverStaleLPM() {
-        guard let raw = try? String(contentsOf: Self.lpmURL, encoding: .utf8),
+        guard let raw = try? String(contentsOf: lpmURL, encoding: .utf8),
               let value = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
               value == 0 || value == 1 else {
-            try? FileManager.default.removeItem(at: Self.lpmURL)
+            try? FileManager.default.removeItem(at: lpmURL)
             return
         }
-        Self.pmset(["-c", "lowpowermode", "\(value)"])
-        try? FileManager.default.removeItem(at: Self.lpmURL)
+        powerMode.setACLowPowerMode(value)
+        try? FileManager.default.removeItem(at: lpmURL)
         log(.info, "recovered AC Low Power Mode to \(value) after an " +
             "unclean previous exit")
-    }
-
-    private static func readACLowPowerMode() -> Int? {
-        guard let out = shell("/usr/bin/pmset", ["-g", "custom"]) else {
-            return nil
-        }
-        var inAC = false
-        for line in out.split(separator: "\n") {
-            if line.contains("AC Power") { inAC = true; continue }
-            if line.contains("Battery Power") { inAC = false; continue }
-            if inAC, line.contains("lowpowermode"),
-               let v = line.split(separator: " ").last.flatMap({ Int($0) }) {
-                return v
-            }
-        }
-        return nil
-    }
-
-    private static func pmset(_ args: [String]) {
-        _ = shell("/usr/bin/pmset", args)
-    }
-
-    @discardableResult
-    private static func shell(_ path: String, _ args: [String]) -> String? {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: path)
-        p.arguments = args
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = FileHandle.nullDevice
-        do {
-            try p.run()
-        } catch {
-            return nil
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        p.waitUntilExit()
-        return String(data: data, encoding: .utf8)
     }
 
     // MARK: - Helpers
@@ -444,7 +439,7 @@ final class GuardEngine {
     func currentStatus() -> GuardStatus {
         queue.sync {
             var s = GuardStatus()
-            let snap = PowerMonitor.snapshot()
+            let snap = snapshot()
             s.mode = mode
             s.protectionEnabled = config.protectionEnabled
             s.isOnAC = snap.isOnAC
@@ -460,7 +455,7 @@ final class GuardEngine {
             s.pdConfirmed = pdConfirmed
             s.pdActiveWatts = pdActiveWatts
             if mode == .guarding {
-                s.nextProbeIn = max(0, nextProbeAt - Self.uptime())
+                s.nextProbeIn = max(0, nextProbeAt - uptime())
             }
             s.helperVersion = HelperVersion.current
             return s
@@ -522,7 +517,7 @@ final class GuardEngine {
         queue.sync {
             let wasEnabled = config.protectionEnabled
             config = sanitized
-            Self.saveConfig(sanitized)
+            Self.saveConfig(sanitized, to: configURL)
             if wasEnabled, !newConfig.protectionEnabled {
                 if mode != .observing {
                     disengageGuard("protection disabled")
@@ -547,8 +542,8 @@ final class GuardEngine {
 
     // MARK: - Config persistence
 
-    private static func loadConfig() -> GuardConfig {
-        guard let data = try? Data(contentsOf: configURL),
+    private static func loadConfig(from url: URL) -> GuardConfig {
+        guard let data = try? Data(contentsOf: url),
               let cfg = try? JSONDecoder().decode(GuardConfig.self, from: data)
         else {
             return GuardConfig()
@@ -556,11 +551,12 @@ final class GuardEngine {
         return cfg
     }
 
-    private static func saveConfig(_ cfg: GuardConfig) {
+    private static func saveConfig(_ cfg: GuardConfig, to url: URL) {
         try? FileManager.default.createDirectory(
-            at: stateDir, withIntermediateDirectories: true)
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(cfg) {
-            try? data.write(to: configURL, options: .atomic)
+            try? data.write(to: url, options: .atomic)
         }
     }
 }
@@ -576,4 +572,24 @@ final class Atomic<T>: @unchecked Sendable {
     init(_ value: T) { _value = value }
     var value: T { lock.lock(); defer { lock.unlock() }; return _value }
     func set(_ v: T) { lock.lock(); _value = v; lock.unlock() }
+}
+
+// Deterministic drivers for unit tests. These run the same private handlers
+// the production timer and IOKit callbacks invoke, but synchronously on the
+// engine queue so a test can step the machine with a controllable clock.
+// Internal + unused in production (dead-code-stripped from Release builds);
+// they exist only so the test target can step the state machine.
+extension GuardEngine {
+    func testTick() { queue.sync { housekeeping() } }
+    func testPowerSourceChanged(_ snap: PowerSnapshot) {
+        queue.sync { powerSourceChanged(snap) }
+    }
+    func testSystemWoke() { queue.sync { systemWoke() } }
+
+    var testMode: GuardMode { queue.sync { mode } }
+    var testBackoff: TimeInterval { queue.sync { backoff } }
+    var testNextProbeAt: TimeInterval { queue.sync { nextProbeAt } }
+    var testAttachCount: Int { queue.sync { attachTimes.count } }
+    var testPendingInhibit: Bool? { queue.sync { pendingInhibitWrite } }
+    var testPDActiveWatts: Int? { queue.sync { pdActiveWatts } }
 }
