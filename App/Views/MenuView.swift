@@ -116,11 +116,20 @@ struct MenuView: View {
 
     private func statCell(_ title: String, _ value: String,
                           _ caption: String) -> some View {
+        // Fixed column width + monospaced digits + single lines: live values
+        // (wattage, mA) change every refresh, and without these the columns
+        // resize and the whole panel jerks each tick.
         VStack(alignment: .leading, spacing: 1) {
             Text(title).font(.caption2).foregroundStyle(.secondary)
+                .lineLimit(1)
             Text(value).font(.system(.body, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .lineLimit(1)
             Text(caption).font(.caption2).foregroundStyle(.tertiary)
+                .monospacedDigit()
+                .lineLimit(1)
         }
+        .frame(width: 148, alignment: .leading)
         .gridColumnAlignment(.leading)
     }
 
