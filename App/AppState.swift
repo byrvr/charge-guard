@@ -97,17 +97,26 @@ final class AppState: ObservableObject {
     }
 
     func refreshOnce() async {
-        refreshHelperState()
-        // The helper is installed as a classic root LaunchDaemon, so its
-        // liveness is defined by XPC reachability — not by SMAppService,
-        // which cannot register ad-hoc-signed builds. A successful status
-        // call means the daemon is running.
+        // Liveness is defined by XPC reachability, not SMAppService (the daemon
+        // is a classic root LaunchDaemon, invisible to SMAppService). Critically,
+        // do NOT set helperState from SMAppService *before* the await below:
+        // that briefly flips it to .notRegistered, and during the async XPC call
+        // SwiftUI renders the tall "helper not installed" screen, then snaps back
+        // to the compact live view — a full-height content swap every poll that
+        // reads as the whole window jerking. Fetch first, then set state.
+        let lal = HelperManager.launchAtLogin
+        if launchAtLogin != lal { launchAtLogin = lal }
+
         let s = await xpc.fetchStatus()
-        if let s {
-            status = s
-            helperState = .enabled
+        guard let s else {
+            // Daemon unreachable — fall back to SMAppService's view of things.
+            let hs = helper.state
+            if helperState != hs { helperState = hs }
+            return
         }
-        guard helperState == .enabled else { return }
+        status = s
+        if helperState != .enabled { helperState = .enabled }
+
         events = await xpc.fetchEvents(limit: 60)
         if let c = await xpc.fetchConfig() {
             if syncedConfig == nil || config == syncedConfig {
