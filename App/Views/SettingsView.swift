@@ -207,7 +207,7 @@ struct SettingsView: View {
                 Label("Compatible", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
             case .incompatible:
-                Label("Not supported here", systemImage: "xmark.seal.fill")
+                Label("Not supported yet", systemImage: "xmark.seal.fill")
                     .foregroundStyle(.orange)
             case .unknown:
                 Label("Not checked", systemImage: "questionmark.circle")
@@ -231,8 +231,10 @@ struct SettingsView: View {
         }
         if m.contains("check compatibility") { return raw }  // our own nudge
         if m.contains("layout mismatch") {
-            return "Slow charging isn't supported on this Mac's charger "
-                + "controller, so it stays off. Pause charging still works."
+            return "Slow charging can't read this Mac's charging contract yet — "
+                + "high-power Macs negotiate a newer high-voltage (EPR) contract "
+                + "the downshift doesn't parse. It stays off, and Pause charging "
+                + "still works."
         }
         if m.contains("unavailable") {
             return "Couldn't reach the charger controller — make sure a charger "
