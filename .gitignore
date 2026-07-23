@@ -14,7 +14,7 @@ xcuserdata/
 .swiftpm/
 
 # Release build output
-.build-release/
+.build-*/
 dist/
 
 # macOS

@@ -147,6 +147,13 @@ struct SettingsView: View {
                 Spacer()
                 compatibilityBadge
             }
+            if appState.status?.pdConfirmed == true {
+                Button("Test slow charging now") { appState.selfTestPD() }
+                    .controlSize(.small)
+                    .help("Briefly asks the charger for less power, then "
+                        + "restores full power. External displays may flicker "
+                        + "once. Run it while the battery is charging.")
+            }
             if let msg = pdMessage {
                 Text(msg)
                     .font(.caption)

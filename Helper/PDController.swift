@@ -126,8 +126,9 @@ final class PDController {
         stateDir.appendingPathComponent("pd.autoneg.original")
 
     /// Plausibility bound for the sink's max-voltage field: it must be at
-    /// least the currently negotiated contract voltage and no more than ~21V.
-    private static let sinkMaxCeilingMV = 21_000
+    /// least the currently negotiated contract voltage and no more than ~29V
+    /// (headroom for a 28V EPR contract on high-power Macs).
+    private static let sinkMaxCeilingMV = 29_000
 
     // MARK: - Probe (read-only)
 
@@ -159,14 +160,45 @@ final class PDController {
 
         guard let active = PDOContract.decodeFixed(activeRaw) else {
             // Not a fixed PDO. High-power Macs negotiate 28V through an EPR AVS
-            // contract — decode it so we recognize it instead of bailing blind.
-            if let avs = AVSContract.decode(pdo: activeRaw, rdo: rdoRaw) {
+            // contract. Decode it, and — if the AVS range and the sink policy
+            // register both look right — confirm it as downshiftable: capping
+            // the sink to a standard rail forces the Mac out of EPR.
+            guard let avs = AVSContract.decode(pdo: activeRaw, rdo: rdoRaw) else {
+                return .layoutMismatch(reason: "Active Contract did not decode "
+                    + "as a fixed PDO or an EPR AVS contract")
+            }
+            // The AVS ceiling must look like a real EPR range (20–29V) and the
+            // live voltage must sit inside it — otherwise we only recognize it.
+            guard avs.maxMillivolts >= 20_000,
+                  avs.maxMillivolts <= Self.sinkMaxCeilingMV,
+                  avs.activeMillivolts > 0,
+                  avs.activeMillivolts <= avs.maxMillivolts + 200 else {
                 return .eprRecognized(activeMV: avs.activeMillivolts,
                                       maxMV: avs.maxMillivolts,
                                       watts: avs.activeWatts)
             }
-            return .layoutMismatch(reason: "Active Contract did not decode "
-                + "as a fixed PDO")
+            // The sink policy register (0x37) must also decode to a plausible
+            // max-voltage — the same gate the fixed path applies — or we must
+            // never write it. If it doesn't, drop to read-only recognition.
+            guard sink.count >= 2 else {
+                return .eprRecognized(activeMV: avs.activeMillivolts,
+                                      maxMV: avs.maxMillivolts,
+                                      watts: avs.activeWatts)
+            }
+            let sinkMaxMV = (Int(sink[0]) | Int(sink[1]) << 8) * 50
+            guard sinkMaxMV >= avs.activeMillivolts,
+                  sinkMaxMV <= Self.sinkMaxCeilingMV else {
+                return .eprRecognized(activeMV: avs.activeMillivolts,
+                                      maxMV: avs.maxMillivolts,
+                                      watts: avs.activeWatts)
+            }
+            // Both registers read cleanly and the sink layout is writable: this
+            // Mac can be downshifted out of EPR safely. Expose the live AVS
+            // voltage/current as the active contract.
+            return .confirmed(active: PDOContract(
+                                millivolts: avs.activeMillivolts,
+                                milliamps: avs.activeMilliamps),
+                              sinkMaxMV: sinkMaxMV)
         }
         guard abs(active.watts - expectedWatts) <= 5 else {
             return .layoutMismatch(reason: "Active Contract decoded to "
@@ -199,65 +231,100 @@ final class PDController {
             return .refused(reason: "unlock/debug failed")
         }
 
-        // Re-validate BOTH registers at write time.
-        guard let activeRaw = readU32(conn, Reg.activeContractPDO),
-              let active = PDOContract.decodeFixed(activeRaw),
-              abs(active.watts - expectedWatts) <= 5 else {
-            return .refused(reason: "active-contract re-validation failed")
+        // Re-read and decode the active contract at write time — a fixed PDO
+        // (standard Macs) or an EPR AVS contract (high-power Macs at 28V).
+        guard let activeRaw = readU32(conn, Reg.activeContractPDO) else {
+            return .refused(reason: "active-contract read failed")
         }
+        let rdoRaw = readU32(conn, Reg.activeContractRDO) ?? 0
+        let activeMV: Int
+        let activeWatts: Int
+        if let fixed = PDOContract.decodeFixed(activeRaw) {
+            // Fixed PDO: re-validate against the adapter's advertised budget.
+            guard abs(fixed.watts - expectedWatts) <= 5 else {
+                return .refused(reason: "active-contract re-validation failed")
+            }
+            activeMV = fixed.millivolts
+            activeWatts = fixed.watts
+        } else if let avs = AVSContract.decode(pdo: activeRaw, rdo: rdoRaw) {
+            // EPR AVS: identity is the APDO type, not a wattage match — the AVS
+            // operating current (hence watts) tracks real draw and varies.
+            activeMV = avs.activeMillivolts
+            activeWatts = avs.activeWatts
+        } else {
+            return .refused(reason: "active-contract did not decode")
+        }
+
         guard var sink = readBytes(conn, Reg.autonegotiateSink),
               sink.count >= 2 else {
             return .refused(reason: "could not read autonegotiate-sink")
         }
         let origMaxMV = (Int(sink[0]) | Int(sink[1]) << 8) * 50
-        guard origMaxMV >= active.millivolts,
+        guard origMaxMV >= activeMV,
               origMaxMV <= Self.sinkMaxCeilingMV else {
             return .refused(reason: "autonegotiate-sink layout re-check failed")
         }
         let original = sink
 
+        // Cap the sink to a standard rail. Clamp to 20V so a 28V EPR contract is
+        // always forced down out of EPR onto a plain fixed rail, never left in
+        // an EPR sub-range we can't reason about.
+        let targetMV = min(railFor(targetWatts: targetWatts), 20_000)
+        guard targetMV < activeMV else {
+            return .refused(reason: "target rail (\(targetMV)mV) is not below "
+                + "the active contract (\(activeMV)mV)")
+        }
+
         // Persist the true original bytes BEFORE the first write, so any
         // failure path (including a crash) can restore them.
         persistOriginal(original)
 
-        let targetMV = railFor(targetWatts: targetWatts)
         let units = UInt16(targetMV / 50)
         sink[0] = UInt8(units & 0xFF)
         sink[1] = UInt8((units >> 8) & 0xFF)
 
         guard writeBytes(conn, Reg.autonegotiateSink, sink),
               command(conn, fourCC.aneg) == 0 else {
-            let ok = revert(conn, to: original, expect: active)
+            let ok = revert(conn, to: original, expectMV: activeMV)
             return .didNotStick(restoredTo: ok.contract,
                                 restoreVerified: ok.verified)
         }
 
         usleep(400_000)
-        if let newRaw = readU32(conn, Reg.activeContractPDO),
-           let now = PDOContract.decodeFixed(newRaw),
-           now.watts <= targetWatts + 3, now.watts < active.watts {
-            // Success: keep the marker so a later restore/crash-recovery can
-            // undo the cap.
+        // Success = the contract voltage actually dropped to (about) the capped
+        // rail and the power fell below where we started. The read-back may be
+        // a fixed PDO (dropped out of EPR) — that's the expected outcome.
+        if let now = readContract(conn),
+           now.millivolts <= targetMV + 500,
+           now.watts < activeWatts {
+            // Keep the marker so a later restore/crash-recovery can undo the cap.
             return .success(newContract: now)
         }
 
-        let ok = revert(conn, to: original, expect: active)
+        let ok = revert(conn, to: original, expectMV: activeMV)
         return .didNotStick(restoredTo: ok.contract,
                             restoreVerified: ok.verified)
     }
 
-    /// Writes the saved original bytes back and verifies the contract came
-    /// back. Clears the marker only on a verified restore.
+    /// Writes the saved original bytes back and confirms the un-cap took hold:
+    /// the sink policy register reads back to its original head (the thing we
+    /// actually control), or the live contract voltage climbed back to near the
+    /// original rail. Clears the marker only on a verified restore. Handles both
+    /// fixed and AVS read-back.
     private func revert(_ conn: OpaquePointer, to original: [UInt8],
-                        expect: PDOContract)
+                        expectMV: Int)
         -> (contract: PDOContract?, verified: Bool) {
         _ = writeBytes(conn, Reg.autonegotiateSink, original)
         _ = command(conn, fourCC.aneg)
         usleep(400_000)
-        let restored = readU32(conn, Reg.activeContractPDO)
-            .flatMap(PDOContract.decodeFixed)
-        let verified = restored.map { abs($0.watts - expect.watts) <= 5 }
-            ?? false
+        let restored = readContract(conn)
+        // Primary signal: the policy register head is byte-for-byte back to the
+        // original. Fallback: the negotiated voltage recovered near the rail we
+        // started from (covers a controller that doesn't echo 0x37 verbatim).
+        let policyBack = readBytes(conn, Reg.autonegotiateSink)
+            .map { Array($0.prefix(2)) == Array(original.prefix(2)) } ?? false
+        let voltageBack = restored.map { $0.millivolts + 500 >= expectMV } ?? false
+        let verified = policyBack || voltageBack
         if verified { clearMarker() }
         return (restored, verified)
     }
@@ -373,6 +440,21 @@ final class PDController {
         guard let b = readBytes(conn, reg), b.count >= 4 else { return nil }
         return UInt32(b[0]) | (UInt32(b[1]) << 8) | (UInt32(b[2]) << 16)
             | (UInt32(b[3]) << 24)
+    }
+
+    /// Reads and decodes the active contract as a `PDOContract`, whether the
+    /// controller reports a fixed PDO or an EPR AVS contract (voltage/current
+    /// taken from the AVS RDO). Used by downshift/revert read-backs so both
+    /// contract shapes are handled uniformly.
+    private func readContract(_ conn: OpaquePointer) -> PDOContract? {
+        guard let raw = readU32(conn, Reg.activeContractPDO) else { return nil }
+        if let fixed = PDOContract.decodeFixed(raw) { return fixed }
+        let rdo = readU32(conn, Reg.activeContractRDO) ?? 0
+        if let avs = AVSContract.decode(pdo: raw, rdo: rdo) {
+            return PDOContract(millivolts: avs.activeMillivolts,
+                               milliamps: avs.activeMilliamps)
+        }
+        return nil
     }
 
     private func writeBytes(_ conn: OpaquePointer, _ reg: UInt8,

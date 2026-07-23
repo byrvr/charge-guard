@@ -75,6 +75,10 @@ final class XPCDelegate: NSObject, NSXPCListenerDelegate, ChargeGuardXPC {
     func probePDController(reply: @escaping (String) -> Void) {
         reply(engine.runPDProbe())
     }
+
+    func selfTestPDDownshift(reply: @escaping (String) -> Void) {
+        reply(engine.runPDSelfTest())
+    }
 }
 
 // MARK: - Bootstrap

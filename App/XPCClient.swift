@@ -125,4 +125,10 @@ final class XPCClient {
             p.probePDController { reply($0) }
         }
     }
+
+    func selfTestPDDownshift() async -> String {
+        await call(fallback: "helper unreachable") { p, reply in
+            p.selfTestPDDownshift { reply($0) }
+        }
+    }
 }

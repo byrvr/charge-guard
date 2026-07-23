@@ -31,4 +31,10 @@ import Foundation
     /// it confirms whether this machine's Type-C controller uses the
     /// standard register layout the downshift relies on.
     func probePDController(reply: @escaping (String) -> Void)
+
+    /// Performs ONE real downshift to the configured budget and immediately
+    /// restores full power — a user-initiated, self-reverting test of the
+    /// write path. Returns a human-readable result. Requires a prior
+    /// successful probe and only runs while the guard is idle.
+    func selfTestPDDownshift(reply: @escaping (String) -> Void)
 }

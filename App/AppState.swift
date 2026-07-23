@@ -174,4 +174,16 @@ final class AppState: ObservableObject {
             await refreshOnce()
         }
     }
+
+    /// Runs the helper's one-shot downshift-and-restore self-test so the user
+    /// can watch slow charging work on demand (charger briefly renegotiates,
+    /// then full power comes back).
+    func selfTestPD() {
+        pdProbeResult = "Testing slow charging…"
+        Task {
+            let result = await xpc.selfTestPDDownshift()
+            pdProbeResult = result
+            await refreshOnce()
+        }
+    }
 }

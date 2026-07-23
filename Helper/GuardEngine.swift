@@ -498,8 +498,9 @@ final class GuardEngine {
             switch result {
             case .confirmed(let active, _):
                 pdConfirmed = true
-                pdStatus = "confirmed: controller speaks standard PD layout "
-                    + "(active \(active.watts)W). Downshift can be enabled."
+                pdStatus = "confirmed: read the active contract cleanly "
+                    + "(\(active.watts)W at \(active.millivolts / 1000)V). Slow "
+                    + "charging can be enabled."
             case .eprRecognized(let activeMV, let maxMV, let watts):
                 pdConfirmed = false
                 pdStatus = "recognized a \(activeMV / 1000)V EPR AVS contract "
@@ -514,6 +515,56 @@ final class GuardEngine {
             }
             log(.info, "PD probe: \(pdStatus)")
             return pdStatus
+        }
+    }
+
+    /// User-initiated safe test of the downshift write path: performs one real
+    /// downshift to the configured budget, then immediately restores the full
+    /// contract. Lets the user confirm slow charging works on their hardware
+    /// without waiting for a charger to actually misbehave. Only runs while
+    /// idle (not mid-guard) and after a probe has confirmed the layout.
+    func runPDSelfTest() -> String {
+        queue.sync {
+            guard pdConfirmed else {
+                pdStatus = "run “Check compatibility” first — a downshift test "
+                    + "only runs after the read-only probe confirms this Mac"
+                return pdStatus
+            }
+            guard mode == .observing else {
+                return "ChargeGuard is currently acting on the charger — let it "
+                    + "settle back to normal, then run the test."
+            }
+            let expected = Int(smc.adapterWatts().rounded())
+            guard expected > config.pdTargetWatts else {
+                return "The charger is only offering \(expected)W right now — the "
+                    + "battery is likely full, so there's nothing to slow down. "
+                    + "Test again while it's actually charging."
+            }
+            let target = config.pdTargetWatts
+            let result = pdBounded(12,
+                PDDownshiftResult.refused(reason: "timed out"))
+                { [pd] in pd.downshift(targetWatts: target,
+                                       expectedWatts: expected) }
+            // Always restore immediately — this is a test, never a lingering cap.
+            _ = pdBounded(8, false) { [pd] in pd.restoreFullContract() }
+
+            let msg: String
+            switch result {
+            case .success(let c):
+                msg = "Test passed: renegotiated down to \(c.watts)W "
+                    + "(\(c.millivolts / 1000)V), then restored full power. Slow "
+                    + "charging works on this Mac."
+            case .didNotStick(let restored, _):
+                msg = "Test inconclusive: the charger didn't take the lower "
+                    + "budget"
+                    + (restored.map { " (held at \($0.watts)W)" } ?? "")
+                    + " — full power was restored. Pause charging still works."
+            case .refused(let why):
+                msg = "Test couldn't run (\(why)) — full power is intact."
+            }
+            log(.info, "PD self-test: \(msg)")
+            pdStatus = msg
+            return msg
         }
     }
 
@@ -567,7 +618,7 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.3.0"
+    static let current = "0.4.0"
 }
 
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.
