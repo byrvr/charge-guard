@@ -500,6 +500,11 @@ final class GuardEngine {
                 pdConfirmed = true
                 pdStatus = "confirmed: controller speaks standard PD layout "
                     + "(active \(active.watts)W). Downshift can be enabled."
+            case .eprRecognized(let activeMV, let maxMV, let watts):
+                pdConfirmed = false
+                pdStatus = "recognized a \(activeMV / 1000)V EPR AVS contract "
+                    + "(range to \(maxMV / 1000)V, \(watts)W). Read OK — the "
+                    + "EPR downshift is the next step."
             case .layoutMismatch(let why):
                 pdConfirmed = false
                 pdStatus = "layout mismatch — downshift unsafe here (\(why))"
@@ -562,7 +567,7 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.2.0"
+    static let current = "0.3.0"
 }
 
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.

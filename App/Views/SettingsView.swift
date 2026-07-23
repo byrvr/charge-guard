@@ -179,7 +179,7 @@ struct SettingsView: View {
             })
     }
 
-    private enum PDCompat { case compatible, incompatible, unknown }
+    private enum PDCompat { case compatible, recognizedEPR, incompatible, unknown }
 
     /// Raw probe/attempt text from the helper (or our own inline nudge).
     private var pdRawMessage: String? {
@@ -188,11 +188,12 @@ struct SettingsView: View {
         return nil
     }
 
-    /// Three honest states: a probe that failed is "incompatible", not the same
-    /// as never having run one.
     private var pdCompat: PDCompat {
         if appState.status?.pdConfirmed == true { return .compatible }
         let m = (pdRawMessage ?? "").lowercased()
+        if m.contains("epr avs") || m.contains("recognized a") {
+            return .recognizedEPR   // read OK; downshift-for-EPR not wired yet
+        }
         if m.isEmpty || m.contains("probing") || m.contains("no adapter")
             || m.contains("plug in") || m.contains("check compatibility") {
             return .unknown
@@ -206,6 +207,9 @@ struct SettingsView: View {
             case .compatible:
                 Label("Compatible", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
+            case .recognizedEPR:
+                Label("Recognized (EPR)", systemImage: "info.circle.fill")
+                    .foregroundStyle(.blue)
             case .incompatible:
                 Label("Not supported yet", systemImage: "xmark.seal.fill")
                     .foregroundStyle(.orange)
@@ -223,6 +227,12 @@ struct SettingsView: View {
         guard let raw = pdRawMessage else { return nil }
         let m = raw.lowercased()
         if m.contains("probing") { return "Checking…" }
+        if m.contains("epr avs") || m.contains("recognized a") {
+            return "ChargeGuard now reads your Mac's 28 V EPR (AVS) charging "
+                + "contract — the decode that was missing. Actually slowing it "
+                + "needs the renegotiation step, which we'll test on a spare "
+                + "charger (not your dock)."
+        }
         if appState.status?.pdConfirmed == true {
             return "Your Mac supports slow charging — you can turn it on."
         }
@@ -264,9 +274,10 @@ struct SettingsView: View {
     // MARK: - Helper
 
     private var helperSection: some View {
-        Section("Background service") {
+        Section {
             LabeledContent("Status", value: helperDescription)
-            HStack {
+            HStack(spacing: 8) {
+                Button("Update Helper…") { appState.installHelper() }
                 Button("Remove Helper", role: .destructive) {
                     appState.removeHelper()
                 }
@@ -275,6 +286,13 @@ struct SettingsView: View {
                     Text("v\(v)").foregroundStyle(.secondary)
                 }
             }
+        } header: {
+            Text("Background service")
+        } footer: {
+            Text("Update Helper reinstalls the background daemon — use it after "
+                 + "updating the app so the running service matches (asks for "
+                 + "your password once).")
+                .font(.caption2)
         }
     }
 

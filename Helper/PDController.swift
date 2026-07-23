@@ -50,8 +50,43 @@ struct PDOContract: Equatable {
 
 enum PDProbeResult {
     case confirmed(active: PDOContract, sinkMaxMV: Int)
+    /// The active contract is an EPR AVS (Adjustable Voltage Supply) object —
+    /// what high-power (e.g. 140W) Macs negotiate. We can read it, but the
+    /// downshift write path for EPR isn't wired up yet.
+    case eprRecognized(activeMV: Int, maxMV: Int, watts: Int)
     case layoutMismatch(reason: String)
     case unavailable(reason: String)
+}
+
+/// A decoded USB-PD EPR Adjustable Voltage Supply (AVS) contract. On high-power
+/// Macs the 28V contract is negotiated through one of these, not a fixed PDO:
+/// the *range* lives in the source APDO (register 0x34) and the *live voltage*
+/// in the sink's request, the RDO (register 0x35).
+struct AVSContract: Equatable {
+    var activeMillivolts: Int   // live output voltage, from the AVS RDO (25mV units)
+    var activeMilliamps: Int    // operating current, from the AVS RDO (50mA units)
+    var maxMillivolts: Int      // range ceiling, from the APDO (100mV units)
+    var minMillivolts: Int      // range floor
+    var pdpWatts: Int           // rated power, from the APDO
+    var activeWatts: Int { activeMillivolts * activeMilliamps / 1_000_000 }
+
+    /// Decodes an EPR AVS contract from the active-contract PDO (an Augmented
+    /// PDO, type `11`, subtype `01`) and the active-contract RDO. Returns nil if
+    /// the PDO is not an EPR AVS object. Bit layouts per USB-PD 3.1 (verified
+    /// against the Linux kernel `include/linux/usb/pd.h`).
+    static func decode(pdo: UInt32, rdo: UInt32) -> AVSContract? {
+        guard (pdo >> 30) & 0x3 == 0x3 else { return nil }   // Augmented PDO
+        guard (pdo >> 28) & 0x3 == 0x1 else { return nil }   // subtype 01 = EPR AVS
+        let maxMV = Int((pdo >> 17) & 0x1FF) * 100
+        let minMV = Int((pdo >> 8) & 0xFF) * 100
+        let pdp   = Int(pdo & 0xFF)
+        let outMV = Int((rdo >> 9) & 0xFFF) * 25             // AVS RDO: 25mV/LSB
+        let outMA = Int(rdo & 0x7F) * 50                     // AVS RDO: 50mA/LSB
+        guard maxMV > 0, outMV > 0 else { return nil }
+        return AVSContract(activeMillivolts: outMV, activeMilliamps: outMA,
+                           maxMillivolts: maxMV, minMillivolts: minMV,
+                           pdpWatts: pdp)
+    }
 }
 
 enum PDDownshiftResult {
@@ -65,6 +100,7 @@ enum PDDownshiftResult {
 private enum Reg {
     static let mode: UInt8 = 0x03
     static let activeContractPDO: UInt8 = 0x34
+    static let activeContractRDO: UInt8 = 0x35
     static let autonegotiateSink: UInt8 = 0x37
 }
 
@@ -108,8 +144,27 @@ final class PDController {
             return .unavailable(reason: "debug mode not entered")
         }
 
-        guard let activeRaw = readU32(conn, Reg.activeContractPDO),
-              let active = PDOContract.decodeFixed(activeRaw) else {
+        guard let activeRaw = readU32(conn, Reg.activeContractPDO) else {
+            return .unavailable(reason: "couldn't read the active contract")
+        }
+        let rdoRaw = readU32(conn, Reg.activeContractRDO) ?? 0
+        let sink = readBytes(conn, Reg.autonegotiateSink) ?? []
+
+        // Diagnostic dump: the exact raw contract, so the controller's true
+        // layout can be confirmed from the log before any write path is trusted.
+        NSLog("[ChargeGuard] PD raw: PDO=%08x type=%u sub=%u  RDO=%08x  sink37=%@",
+              activeRaw, (activeRaw >> 30) & 3, (activeRaw >> 28) & 3, rdoRaw,
+              sink.prefix(24).map { String(format: "%02x", $0) }
+                  .joined(separator: " "))
+
+        guard let active = PDOContract.decodeFixed(activeRaw) else {
+            // Not a fixed PDO. High-power Macs negotiate 28V through an EPR AVS
+            // contract — decode it so we recognize it instead of bailing blind.
+            if let avs = AVSContract.decode(pdo: activeRaw, rdo: rdoRaw) {
+                return .eprRecognized(activeMV: avs.activeMillivolts,
+                                      maxMV: avs.maxMillivolts,
+                                      watts: avs.activeWatts)
+            }
             return .layoutMismatch(reason: "Active Contract did not decode "
                 + "as a fixed PDO")
         }
@@ -120,8 +175,7 @@ final class PDController {
         // Validate 0x37 too: its head u16 must already look like a plausible
         // sink max-voltage, else our downshift assumption about its layout is
         // wrong and we must never write it.
-        guard let sink = readBytes(conn, Reg.autonegotiateSink),
-              sink.count >= 2 else {
+        guard sink.count >= 2 else {
             return .layoutMismatch(reason: "Autonegotiate-Sink unreadable")
         }
         let sinkMaxMV = (Int(sink[0]) | Int(sink[1]) << 8) * 50
