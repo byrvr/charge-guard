@@ -216,7 +216,10 @@ final class GuardEngine {
 
         switch mode {
         case .observing:
-            break
+            // Always-on limiter: when Slow charging is enabled as a persistent
+            // cap and the controller is confirmed, hold the contract down
+            // proactively instead of waiting for a charger to misbehave.
+            maybeEngagePersistentCap(now)
         case .guarding:
             if !isOnAC, now - lastACSeen > 300 {
                 disengageGuard("adapter removed for >5 min")
@@ -315,6 +318,26 @@ final class GuardEngine {
             pdStatus = "downshift refused: \(why)"
             log(.warning, "PD downshift refused: \(why)")
             return false
+        }
+    }
+
+    /// Proactively applies the PD cap when Slow charging is enabled as an
+    /// always-on limit — confirmed controller, on AC, and currently drawing
+    /// above the target budget. Enters the same stable capped state the flap
+    /// path uses, so the existing maintenance and restore-on-disengage logic
+    /// applies unchanged. Does nothing while the Mac is already sipping
+    /// (battery full → low contract), so it never renegotiates a port that
+    /// isn't actually pulling high power.
+    private func maybeEngagePersistentCap(_ now: TimeInterval) {
+        guard config.experimentalPDDownshift, pdConfirmed, isOnAC,
+              pdActiveWatts == nil else { return }
+        guard Int(smc.adapterWatts().rounded()) > config.pdTargetWatts + 5
+        else { return }
+        if attemptPDDownshift() {
+            engageLPM()
+            mode = .guarding
+            log(.guardOn, "power limit engaged — holding the charger near "
+                + "\(config.pdTargetWatts)W (charging continues, slower)")
         }
     }
 
@@ -572,15 +595,22 @@ final class GuardEngine {
         let sanitized = newConfig.sanitized()
         queue.sync {
             let wasEnabled = config.protectionEnabled
+            let wasPDEnabled = config.experimentalPDDownshift
             config = sanitized
             Self.saveConfig(sanitized, to: configURL)
-            if wasEnabled, !newConfig.protectionEnabled {
+            if wasEnabled, !sanitized.protectionEnabled {
                 if mode != .observing {
                     disengageGuard("protection disabled")
                 }
                 log(.info, "protection disabled")
-            } else if !wasEnabled, newConfig.protectionEnabled {
+            } else if !wasEnabled, sanitized.protectionEnabled {
                 log(.info, "protection enabled")
+            }
+            // Turning the always-on limiter off must lift any active cap and
+            // restore full power right away, not wait for a disengage trigger.
+            if wasPDEnabled, !sanitized.experimentalPDDownshift,
+               pdActiveWatts != nil {
+                disengageGuard("slow-charging limit turned off")
             }
         }
     }
@@ -618,7 +648,7 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.4.0"
+    static let current = "0.4.1"
 }
 
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.

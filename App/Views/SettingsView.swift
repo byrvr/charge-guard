@@ -165,10 +165,12 @@ struct SettingsView: View {
         } footer: {
             Text("Pause charging is the safe, proven option: charging stops so "
                  + "the charger only powers the Mac, then quietly resumes.\n\n"
-                 + "Slow charging is experimental — instead of pausing, it asks "
-                 + "the charger for less power so the battery keeps charging. Run "
-                 + "Check compatibility first; it only works on some Macs and "
-                 + "drives an undocumented controller, so use at your own risk.")
+                 + "Slow charging is an always-on limit — while it's on it holds "
+                 + "the charger at your budget the whole time it's plugged in, so "
+                 + "the battery keeps charging but your Mac never pulls the full "
+                 + "wattage. Run Check compatibility first, while the battery is "
+                 + "actually charging; it's experimental and drives an "
+                 + "undocumented controller, so use at your own risk.")
                 .font(.caption2)
         }
     }

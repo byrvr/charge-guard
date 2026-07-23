@@ -344,4 +344,56 @@ final class GuardEngineTests: XCTestCase {
             "a refused downshift must fall back to the charge-inhibit guard")
         XCTAssertNil(rig.engine.testPDActiveWatts)
     }
+
+    // MARK: Always-on limiter (persistent cap)
+
+    func testPersistentCapEngagesWithoutFlap() {
+        let rig = makeRig()
+        confirmPD(rig)                       // confirmed + Slow charging on, target 45
+        rig.pd.downshiftResult = .success(
+            newContract: PDOContract(millivolts: 15_000, milliamps: 3_000)) // 45W
+        rig.smc.adapterW = 65                // pulling well above the 45W budget
+        setAC(rig, true)                     // just plugged in — no flapping
+        rig.clock.advance(1)
+        rig.engine.testTick()                // housekeeping applies the always-on cap
+        XCTAssertEqual(rig.engine.testMode, .guarding,
+            "an always-on limit engages without waiting for a flap")
+        XCTAssertEqual(rig.engine.testPDActiveWatts, 45)
+        XCTAssertFalse(rig.smc.inhibited,
+            "the limit caps the contract; it never inhibits charging")
+    }
+
+    func testPersistentCapSkippedWhenAlreadyLow() {
+        let rig = makeRig()
+        confirmPD(rig)
+        rig.pd.downshiftResult = .success(
+            newContract: PDOContract(millivolts: 15_000, milliamps: 3_000))
+        rig.smc.adapterW = 27                // already below budget (e.g. battery full)
+        setAC(rig, true)
+        rig.clock.advance(1)
+        rig.engine.testTick()
+        XCTAssertEqual(rig.engine.testMode, .observing,
+            "nothing to cap when the Mac is already sipping — no needless renegotiation")
+        XCTAssertNil(rig.engine.testPDActiveWatts)
+    }
+
+    func testDisablingLimiterRestoresFullPower() {
+        let rig = makeRig()
+        confirmPD(rig)
+        rig.pd.downshiftResult = .success(
+            newContract: PDOContract(millivolts: 15_000, milliamps: 3_000))
+        rig.smc.adapterW = 65
+        setAC(rig, true)
+        rig.clock.advance(1); rig.engine.testTick()
+        XCTAssertEqual(rig.engine.testPDActiveWatts, 45, "cap is applied first")
+
+        var c = rig.engine.currentConfig()
+        c.experimentalPDDownshift = false
+        rig.engine.applyConfig(c)
+        XCTAssertNil(rig.engine.testPDActiveWatts,
+            "turning the limit off lifts the cap immediately")
+        XCTAssertEqual(rig.engine.testMode, .observing)
+        XCTAssertGreaterThanOrEqual(rig.pd.restoreCount, 1,
+            "disabling the limit restores the full PD contract")
+    }
 }
