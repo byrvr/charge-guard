@@ -396,4 +396,113 @@ final class GuardEngineTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(rig.pd.restoreCount, 1,
             "disabling the limit restores the full PD contract")
     }
+
+    // MARK: Power limit (watt cap)
+
+    /// Enables the cap and returns the rig already on AC.
+    private func withPowerLimit(_ rig: Rig, watts: Int) {
+        var c = rig.engine.currentConfig()
+        c.powerLimitEnabled = true
+        c.powerLimitWatts = watts
+        rig.engine.applyConfig(c)
+    }
+
+    func testPowerLimitPausesChargingWhenOverCeiling() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 60)
+        rig.smc.inputW = 95
+        setAC(rig, true)
+        rig.clock.advance(15)
+        rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding,
+            "95W over a 60W ceiling must pause charging")
+        XCTAssertTrue(rig.smc.inhibited)
+        XCTAssertEqual(rig.engine.testMode, .observing,
+            "the watt cap is not the flap guard — mode stays observing")
+    }
+
+    func testPowerLimitResumesOnceDrawSettles() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 60)
+        rig.smc.inputW = 95
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+
+        // Below the ceiling but inside the hysteresis band: still holding.
+        rig.smc.inputW = 55
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding,
+            "hysteresis keeps the pause until draw is clearly under")
+
+        rig.smc.inputW = 40
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitHolding)
+        XCTAssertFalse(rig.smc.inhibited, "charging resumes")
+    }
+
+    func testPowerLimitRespectsDwellBeforeFlipping() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 60)
+        rig.smc.inputW = 95
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+
+        // Draw collapses immediately, but the 60s resume dwell is not up.
+        rig.smc.inputW = 20
+        rig.clock.advance(5); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding,
+            "charging must not chatter back on within the dwell")
+    }
+
+    func testPowerLimitReleasesOnBatteryAndOnDisable() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 60)
+        rig.smc.inputW = 95
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+
+        setAC(rig, false)
+        rig.clock.advance(5); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitHolding,
+            "unplugging lifts the cap")
+        XCTAssertFalse(rig.smc.inhibited)
+
+        // Re-engage, then turn the feature off: charging resumes at once.
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+        var c = rig.engine.currentConfig()
+        c.powerLimitEnabled = false
+        rig.engine.applyConfig(c)
+        XCTAssertFalse(rig.engine.testLimitHolding)
+        XCTAssertFalse(rig.smc.inhibited,
+            "turning the cap off resumes charging immediately")
+    }
+
+    func testPowerLimitReassertsWhenChargingSneaksBackOn() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 60)
+        rig.smc.inputW = 95
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.smc.inhibited)
+
+        rig.smc.inhibited = false            // something else re-enabled it
+        rig.clock.advance(5); rig.engine.testTick()
+        XCTAssertTrue(rig.smc.inhibited,
+            "the cap re-asserts the pause it owns")
+    }
+
+    func testPowerLimitOffByDefault() {
+        let rig = makeRig()
+        rig.smc.inputW = 200
+        setAC(rig, true)
+        rig.clock.advance(30); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitHolding,
+            "the cap must be opt-in")
+        XCTAssertFalse(rig.smc.inhibited)
+    }
 }

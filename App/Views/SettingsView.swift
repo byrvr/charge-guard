@@ -14,6 +14,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            powerLimitSection
             sensitivitySection
             advancedSection
             strategySection
@@ -25,6 +26,73 @@ struct SettingsView: View {
         // Push on every edit — onDisappear alone loses changes when the
         // process exits while the window is open (quit, logout).
         .onChange(of: appState.config) { _, _ in appState.push() }
+    }
+
+    // MARK: - Power limit
+
+    private var powerLimitSection: some View {
+        Section {
+            Toggle("Limit how much power my Mac pulls",
+                   isOn: $appState.config.powerLimitEnabled)
+
+            if appState.config.powerLimitEnabled {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Ceiling")
+                        Spacer()
+                        Text("\(appState.config.powerLimitWatts) W")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: powerLimitBinding, in: 25...140, step: 5) {
+                        Text("Ceiling")
+                    } minimumValueLabel: {
+                        Text("25 W").font(.caption2).foregroundStyle(.secondary)
+                    } maximumValueLabel: {
+                        Text("140 W").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .labelsHidden()
+                }
+                .padding(.top, 2)
+
+                HStack(spacing: 6) {
+                    if appState.status?.powerLimitHolding == true {
+                        Image(systemName: "pause.circle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Holding — charging paused until draw settles")
+                    } else {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Under the ceiling — charging normally")
+                    }
+                    Spacer()
+                    if let w = appState.status?.inputWatts {
+                        Text("now \(Int(w.rounded())) W")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption)
+            }
+        } header: {
+            Text("Power limit")
+        } footer: {
+            Text("Your Mac pulls the most power when the battery is charging "
+                 + "hard. With this on, ChargeGuard pauses charging whenever "
+                 + "total draw goes above your ceiling and lets it resume once "
+                 + "it settles — so the battery still fills up, just gently, "
+                 + "and the adapter never runs flat out.\n\n"
+                 + "Your apps are never slowed down. If the Mac alone already "
+                 + "draws more than the ceiling, charging simply stays paused "
+                 + "until it quiets down.")
+                .font(.caption2)
+        }
+    }
+
+    private var powerLimitBinding: Binding<Double> {
+        Binding(
+            get: { Double(appState.config.powerLimitWatts) },
+            set: { appState.config.powerLimitWatts = Int($0.rounded()) })
     }
 
     // MARK: - Sensitivity
@@ -165,12 +233,12 @@ struct SettingsView: View {
         } footer: {
             Text("Pause charging is the safe, proven option: charging stops so "
                  + "the charger only powers the Mac, then quietly resumes.\n\n"
-                 + "Slow charging is an always-on limit — while it's on it holds "
-                 + "the charger at your budget the whole time it's plugged in, so "
-                 + "the battery keeps charging but your Mac never pulls the full "
-                 + "wattage. Run Check compatibility first, while the battery is "
-                 + "actually charging; it's experimental and drives an "
-                 + "undocumented controller, so use at your own risk.")
+                 + "Slow charging asks the charger itself for a smaller budget. "
+                 + "It's experimental: on recent Apple Silicon Macs the "
+                 + "controller accepts the request but macOS puts the original "
+                 + "contract straight back, so it usually changes nothing. If "
+                 + "you just want less wattage, use Power limit at the top — "
+                 + "that one works everywhere.")
                 .font(.caption2)
         }
     }
@@ -243,7 +311,10 @@ struct SettingsView: View {
                 + "charger (not your dock)."
         }
         if appState.status?.pdConfirmed == true {
-            return "Your Mac supports slow charging — you can turn it on."
+            return "ChargeGuard can read your charging contract fine, so you "
+                + "can try slow charging. Heads-up: on this Mac the charger "
+                + "usually snaps back to full power a moment later — Power "
+                + "limit at the top is the reliable way to pull fewer watts."
         }
         if m.contains("no adapter") || m.contains("plug in") {
             return "Plug in your charger, then check again."

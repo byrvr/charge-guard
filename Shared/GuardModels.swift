@@ -34,10 +34,23 @@ public struct GuardConfig: Codable, Equatable, Sendable {
     /// down to `pdTargetWatts` (driving the Type-C controller) instead of
     /// inhibiting charging. Off by default; only takes effect after a probe
     /// confirms this machine's controller uses the standard register layout.
+    ///
+    /// NOTE: on Apple-firmware Type-C controllers (CD3217 with Apple's
+    /// register map) the write is accepted but the SoC's own policy manager
+    /// re-asserts the original contract, so this never actually lowers the
+    /// budget. `powerLimitEnabled` is the lever that works.
     public var experimentalPDDownshift: Bool = false
     /// Target power budget for the downshift (nearest advertised rail at or
     /// below this is chosen: 45W/36W/27W).
     public var pdTargetWatts: Int = 45
+
+    /// Cap total draw from the adapter. Implemented with the one lever Apple
+    /// Silicon actually honors: pause battery charging while the Mac is
+    /// pulling more than `powerLimitWatts`, resume once it drops back under.
+    /// System load is never throttled — only the charging half is.
+    public var powerLimitEnabled: Bool = false
+    /// Watt ceiling for `powerLimitEnabled`.
+    public var powerLimitWatts: Int = 60
 
     public init() {}
 
@@ -56,6 +69,7 @@ public struct GuardConfig: Codable, Equatable, Sendable {
         c.swapProbeDelay = min(max(c.swapProbeDelay, 10), 600)
         c.retriggerWindow = min(max(c.retriggerWindow, 0), 3600)
         c.pdTargetWatts = min(max(c.pdTargetWatts, 27), 60)
+        c.powerLimitWatts = min(max(c.powerLimitWatts, 25), 140)
         return c
     }
 }
@@ -96,6 +110,8 @@ public struct GuardStatus: Codable, Sendable {
     public var pdConfirmed: Bool = false
     /// Watts of an active PD downshift, if one is currently applied.
     public var pdActiveWatts: Int?
+    /// True while the power limit is actively holding charging paused.
+    public var powerLimitHolding: Bool = false
     public var helperVersion: String = ""
 
     public init() {}

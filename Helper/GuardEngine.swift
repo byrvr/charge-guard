@@ -62,6 +62,12 @@ final class GuardEngine {
     private var lastGuardOff: TimeInterval = 0
     private var lpmBaseline: Int?
 
+    // Power-limit state. `limitHolding` means charging is currently paused
+    // *because of the watt cap* (as opposed to the flap guard), and
+    // `lastLimitChangeAt` enforces a dwell so charging never chatters.
+    private var limitHolding = false
+    private var lastLimitChangeAt: TimeInterval = 0
+
     private var events: [GuardEvent] = []
     private var timer: DispatchSourceTimer?
     private let queue = DispatchQueue(label: "dev.byrvr.ChargeGuard.engine")
@@ -216,6 +222,9 @@ final class GuardEngine {
 
         switch mode {
         case .observing:
+            // The watt cap runs first: it is the lever that actually works on
+            // Apple Silicon, and it owns CHTE while the flap guard is idle.
+            enforcePowerLimit(now)
             // Always-on limiter: when Slow charging is enabled as a persistent
             // cap and the controller is confirmed, hold the contract down
             // proactively instead of waiting for a charger to misbehave.
@@ -339,6 +348,57 @@ final class GuardEngine {
             log(.guardOn, "power limit engaged — holding the charger near "
                 + "\(config.pdTargetWatts)W (charging continues, slower)")
         }
+    }
+
+    // MARK: - Power limit (watt cap)
+
+    /// Holds total adapter draw under `config.powerLimitWatts`.
+    ///
+    /// Apple Silicon exposes no charge-current limit — CHTL looks like one but
+    /// ignores writes, and the PD contract is re-asserted by the SoC's own
+    /// policy manager — so the only lever that moves real watts is pausing
+    /// charging. While the Mac pulls more than the cap, charging is held off;
+    /// once draw settles back under it, charging resumes. The result is a
+    /// duty-cycled charge that keeps average draw at the ceiling without ever
+    /// throttling the system itself.
+    ///
+    /// Asymmetric dwell (10s to pause, 60s to resume) biases toward being
+    /// under the cap and keeps the charge from chattering on and off.
+    private func enforcePowerLimit(_ now: TimeInterval) {
+        guard config.powerLimitEnabled, isOnAC else {
+            releasePowerLimit(now, reason: isOnAC ? "limit off" : "on battery")
+            return
+        }
+        // Re-assert the pause if anything else re-enabled charging behind us.
+        if limitHolding, let actual = try? smc.isChargingInhibited(), !actual {
+            inhibit(true)
+        }
+        guard let watts = smc.inputPowerWatts() else { return }
+        let cap = Double(config.powerLimitWatts)
+        let resumeBelow = max(15, cap - 10)
+        guard now - lastLimitChangeAt >= (limitHolding ? 60 : 10) else { return }
+
+        if !limitHolding, watts > cap {
+            limitHolding = true
+            lastLimitChangeAt = now
+            inhibit(true)
+            log(.guardOn, "power limit: \(Int(watts.rounded()))W is over the "
+                + "\(config.powerLimitWatts)W cap — charging paused")
+        } else if limitHolding, watts < resumeBelow {
+            limitHolding = false
+            lastLimitChangeAt = now
+            inhibit(false)
+            log(.guardOff, "power limit: down to \(Int(watts.rounded()))W — "
+                + "charging resumed")
+        }
+    }
+
+    private func releasePowerLimit(_ now: TimeInterval, reason: String) {
+        guard limitHolding else { return }
+        limitHolding = false
+        lastLimitChangeAt = now
+        inhibit(false)
+        log(.guardOff, "power limit released (\(reason)) — charging enabled")
     }
 
     private func disengageGuard(_ reason: String) {
@@ -477,6 +537,7 @@ final class GuardEngine {
             s.pdStatus = pdStatus
             s.pdConfirmed = pdConfirmed
             s.pdActiveWatts = pdActiveWatts
+            s.powerLimitHolding = limitHolding
             if mode == .guarding {
                 s.nextProbeIn = max(0, nextProbeAt - uptime())
             }
@@ -502,6 +563,7 @@ final class GuardEngine {
             log(.info, "terminating — re-enabling charging")
             _ = pdBounded(8, false) { [pd] in pd.restoreFullContract() }
             pdActiveWatts = nil
+            limitHolding = false
             inhibit(false)
             restoreLPM()
         }
@@ -612,11 +674,17 @@ final class GuardEngine {
                pdActiveWatts != nil {
                 disengageGuard("slow-charging limit turned off")
             }
+            // Turning the watt cap off (or protection off entirely) must
+            // resume charging immediately, not on the next dwell tick.
+            if !sanitized.powerLimitEnabled || !sanitized.protectionEnabled {
+                releasePowerLimit(uptime(), reason: "limit off")
+            }
         }
     }
 
     func forceChargingOn() {
         queue.sync {
+            releasePowerLimit(uptime(), reason: "manual override")
             if mode != .observing {
                 disengageGuard("manual override")
             } else {
@@ -648,7 +716,7 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.4.1"
+    static let current = "0.5.0"
 }
 
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.
@@ -678,4 +746,5 @@ extension GuardEngine {
     var testAttachCount: Int { queue.sync { attachTimes.count } }
     var testPendingInhibit: Bool? { queue.sync { pendingInhibitWrite } }
     var testPDActiveWatts: Int? { queue.sync { pdActiveWatts } }
+    var testLimitHolding: Bool { queue.sync { limitHolding } }
 }
