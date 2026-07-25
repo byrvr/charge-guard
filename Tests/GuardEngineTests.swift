@@ -703,7 +703,7 @@ final class GuardEngineTests: XCTestCase {
         XCTAssertEqual(rig.engine.testLimitSampleSeconds, 0)
         XCTAssertNil(rig.engine.currentStatus().powerLimitAverageWatts,
             "nothing is reported until the new ceiling has been measured")
-        XCTAssertTrue(rig.engine.currentStatus().powerLimitSettling)
+        XCTAssertEqual(rig.engine.currentStatus().powerLimitSettling, true)
     }
 
     /// Half an average next to the ceiling is worse than no number at all: it
@@ -719,13 +719,13 @@ final class GuardEngineTests: XCTestCase {
         var s = rig.engine.currentStatus()
         XCTAssertNil(s.powerLimitAverageWatts)
         XCTAssertNil(s.powerLimitDutyPercent)
-        XCTAssertTrue(s.powerLimitSettling)
+        XCTAssertEqual(s.powerLimitSettling, true)
 
         runBursting(rig, 120)
         s = rig.engine.currentStatus()
         XCTAssertNotNil(s.powerLimitAverageWatts)
         XCTAssertNotNil(s.powerLimitDutyPercent)
-        XCTAssertFalse(s.powerLimitSettling)
+        XCTAssertNotEqual(s.powerLimitSettling, true)
     }
 
     /// End to end on the exact numbers from the bug report: settle at 45W,
@@ -755,7 +755,7 @@ final class GuardEngineTests: XCTestCase {
         run(rig, 300)
         withPowerLimit(rig, watts: 30)
         XCTAssertEqual(rig.engine.testLimitSampleSeconds, 0)
-        XCTAssertTrue(rig.engine.currentStatus().powerLimitSettling)
+        XCTAssertEqual(rig.engine.currentStatus().powerLimitSettling, true)
     }
 
     /// One product, one version number.

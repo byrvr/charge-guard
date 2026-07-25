@@ -89,9 +89,7 @@ struct MenuView: View {
                     statCell("Battery", "\(s.batteryPercent)%",
                              s.isCharging ? "charging" : (s.isOnAC ?
                              "on AC, not charging" : "discharging"))
-                    statCell("Adapter", s.adapterWatts > 0 ?
-                             String(format: "%.0f W", s.adapterWatts) : "—",
-                             adapterCaption(s))
+                    statCell(powerTitle(s), powerValue(s), powerCaption(s))
                 }
                 GridRow {
                     statCell("Charge current",
@@ -106,21 +104,46 @@ struct MenuView: View {
         }
     }
 
-    private func adapterCaption(_ s: GuardStatus) -> String {
-        guard s.isOnAC else { return "not connected" }
-        // With the ceiling on, charging runs in bursts and the instantaneous
-        // reading swings between idle and full charge every half minute. Show
-        // the same average the ceiling is actually holding, so this panel and
-        // the Power limit settings agree instead of appearing to contradict
-        // each other.
+    // The big number in this cell used to be `adapterWatts` — the negotiated
+    // budget, i.e. the adapter's rating. That number never moves no matter
+    // where the ceiling is set, so with a 30W ceiling active the panel still
+    // read "65 W" and looked like the ceiling was doing nothing. With a
+    // ceiling running, the headline is the draw the ceiling is actually
+    // holding and the adapter's rating moves to the caption.
+    //
+    // The average, not the instantaneous reading: charging on this Mac is
+    // all-or-nothing, so the live figure swings between idle and full charge
+    // every half minute and agrees with the ceiling roughly never.
+
+    private func powerTitle(_ s: GuardStatus) -> String {
+        limitActive(s) ? "Power draw" : "Adapter"
+    }
+
+    private func powerValue(_ s: GuardStatus) -> String {
         if let avg = s.powerLimitAverageWatts {
-            return String(format: "averaging %.0f W", avg)
+            return String(format: "%.0f W", avg)
         }
-        if s.powerLimitSettling { return "measuring average…" }
+        if s.powerLimitSettling == true { return "…" }
+        return s.adapterWatts > 0 ? String(format: "%.0f W", s.adapterWatts)
+                                  : "—"
+    }
+
+    private func powerCaption(_ s: GuardStatus) -> String {
+        guard s.isOnAC else { return "not connected" }
+        if limitActive(s) {
+            let adapter = s.adapterWatts > 0
+                ? String(format: "%.0f W adapter", s.adapterWatts) : "on AC"
+            return s.powerLimitSettling == true ? "measuring — \(adapter)"
+                                        : "average — \(adapter)"
+        }
         if let draw = s.inputWatts {
             return String(format: "drawing %.0f W now", draw)
         }
         return "negotiated budget"
+    }
+
+    private func limitActive(_ s: GuardStatus) -> Bool {
+        s.powerLimitAverageWatts != nil || s.powerLimitSettling == true
     }
 
     private func statCell(_ title: String, _ value: String,

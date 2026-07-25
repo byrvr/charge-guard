@@ -81,12 +81,19 @@ final class GuardEngine {
     /// the average and the duty share instead.
     private var limitAvgWatts: Double?
     private var limitDuty: Double = 1
-    /// Seconds of samples behind the figures above. They are exponential
-    /// averages seeded from the first reading, so for the first minute or so
-    /// they are still mostly that first reading — publishing them that early
-    /// puts a number next to the ceiling that flatly contradicts it. Nothing
-    /// is reported until this passes `limitSettleSeconds`.
+    /// Running totals for the measurement window, and the plain unbiased mean
+    /// they produce.
+    ///
+    /// An exponential average seeded from its first sample spends its first
+    /// time constant reporting mostly that first sample: on a fresh 30W
+    /// ceiling it opens at about 41W, which is exactly the "the cap is doing
+    /// nothing" reading this whole mechanism exists to avoid. So for the first
+    /// `limitAverageTau` the figures are a true energy/time mean — correct
+    /// from the very first sample — and the exponential average only takes
+    /// over afterwards, by which point it has real history to smooth.
     private var limitSampleSeconds: Double = 0
+    private var limitEnergyJoules: Double = 0
+    private var limitChargingSeconds: Double = 0
     /// Sampled only while charging is paused, so it is the Mac's own draw
     /// with nothing going to the battery.
     private var limitBaseWatts: Double?
@@ -480,9 +487,19 @@ final class GuardEngine {
             return
         }
         limitSampleSeconds += dt
-        let a = min(1, dt / Self.limitAverageTau)
-        limitAvgWatts = limitAvgWatts.map { $0 + (watts - $0) * a } ?? watts
-        limitDuty += ((limitHolding ? 0 : 1) - limitDuty) * a
+        limitEnergyJoules += watts * dt
+        limitChargingSeconds += limitHolding ? 0 : dt
+        if limitSampleSeconds < Self.limitAverageTau {
+            // Young window: the honest arithmetic mean, no seeding bias.
+            limitAvgWatts = limitEnergyJoules / limitSampleSeconds
+            limitDuty = limitChargingSeconds / limitSampleSeconds
+        } else {
+            // Old enough to smooth. The handover is seamless: at the crossover
+            // the exponential average starts from the window mean.
+            let a = min(1, dt / Self.limitAverageTau)
+            limitAvgWatts = limitAvgWatts.map { $0 + (watts - $0) * a } ?? watts
+            limitDuty += ((limitHolding ? 0 : 1) - limitDuty) * a
+        }
         if limitHolding {
             // Charging is off, so this sample is the Mac by itself. Slower
             // constant than the others: it is advice about where to put the
@@ -508,8 +525,22 @@ final class GuardEngine {
         limitAvgWatts = nil
         limitDuty = limitHolding ? 0 : 1
         limitSampleSeconds = 0
+        limitEnergyJoules = 0
+        limitChargingSeconds = 0
         limitUnreachable = false
         lastLimitSampleAt = now
+    }
+
+    /// Whether the sample clock is actually running, i.e. whether "Measuring"
+    /// will ever finish.
+    ///
+    /// `limitSampleSeconds` only advances inside the observing branch of
+    /// housekeeping, with protection on and a readable draw sensor. Turn
+    /// protection off, trip the flap guard, or run on a Mac where PDTR can't
+    /// be read, and the counter stops — so a settling flag that looked only at
+    /// "limit on, on AC" would leave the UI saying "about a minute" forever.
+    private func limitIsMeasuring(_ s: GuardStatus) -> Bool {
+        config.protectionEnabled && mode == .observing && s.inputWatts != nil
     }
 
     private func releasePowerLimit(_ now: TimeInterval, reason: String) {
@@ -518,6 +549,8 @@ final class GuardEngine {
         limitAvgWatts = nil
         limitDuty = 1
         limitSampleSeconds = 0
+        limitEnergyJoules = 0
+        limitChargingSeconds = 0
         limitBaseWatts = nil
         lastLimitSampleAt = now
         guard limitHolding else { return }
@@ -673,7 +706,7 @@ final class GuardEngine {
                     s.powerLimitAverageWatts = limitAvgWatts
                     s.powerLimitDutyPercent =
                         Int((min(max(limitDuty, 0), 1) * 100).rounded())
-                } else {
+                } else if limitIsMeasuring(s) {
                     s.powerLimitSettling = true
                 }
                 s.powerLimitBaseWatts = limitBaseWatts

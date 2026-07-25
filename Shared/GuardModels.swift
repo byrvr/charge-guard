@@ -128,7 +128,13 @@ public struct GuardStatus: Codable, Sendable {
     /// True while the ceiling is on but the averages are too young to report.
     /// Every ceiling change restarts the measurement, so this is normal for
     /// about a minute and a half after moving the slider.
-    public var powerLimitSettling: Bool = false
+    ///
+    /// Optional, not a defaulted `Bool`: the synthesized `Codable` init treats
+    /// a missing key as an error for non-optional properties, so a plain
+    /// `Bool` here would make the whole status undecodable when a new app
+    /// talks to a helper that hasn't been reinstalled yet — which is exactly
+    /// the case the version-mismatch warning needs to survive to report.
+    public var powerLimitSettling: Bool?
     public var helperVersion: String = ""
 
     public init() {}
