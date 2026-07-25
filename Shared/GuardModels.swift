@@ -115,6 +115,16 @@ public struct GuardStatus: Codable, Sendable {
     /// True when the ceiling is set below what the Mac draws on its own, so
     /// pausing charging can never get under it.
     public var powerLimitUnreachable: Bool = false
+    /// Rolling average of real input draw while the ceiling is active. This,
+    /// not the instantaneous reading, is the number the ceiling promises:
+    /// charging runs in bursts, so a sample taken mid-pause is meaningless.
+    public var powerLimitAverageWatts: Double?
+    /// Share of recent time charging was allowed to run, 0-100.
+    public var powerLimitDutyPercent: Int?
+    /// What the Mac draws with charging paused — its own appetite. This is the
+    /// number that decides which ceilings are usable at all: anything below it
+    /// leaves nothing for the battery, so the UI shows it beside the slider.
+    public var powerLimitBaseWatts: Double?
     public var helperVersion: String = ""
 
     public init() {}

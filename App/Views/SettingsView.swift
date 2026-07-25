@@ -55,22 +55,40 @@ struct SettingsView: View {
                 }
                 .padding(.top, 2)
 
+                if let base = appState.status?.powerLimitBaseWatts {
+                    Text("Your Mac alone is using about "
+                         + "\(Int(base.rounded())) W right now. A ceiling "
+                         + "below that leaves nothing for the battery.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 HStack(spacing: 6) {
                     if appState.status?.powerLimitUnreachable == true {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                         Text("Ceiling is below what your Mac needs on its own")
-                    } else if appState.status?.powerLimitHolding == true {
-                        Image(systemName: "pause.circle.fill")
-                            .foregroundStyle(.orange)
-                        Text("Holding — charging paused until draw settles")
+                    } else if isBurstCharging {
+                        Image(systemName: "bolt.circle.fill")
+                            .foregroundStyle(.blue)
+                        Text("Charging in bursts — about "
+                             + "\(appState.status?.powerLimitDutyPercent ?? 0)"
+                             + "% of the time")
                     } else {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text("Under the ceiling — charging normally")
                     }
                     Spacer()
-                    if let w = appState.status?.inputWatts {
+                    // The average, not the instantaneous reading: charging runs
+                    // in bursts, so a sample taken mid-pause reads far below
+                    // the ceiling and looks like the app is making it up.
+                    if let avg = appState.status?.powerLimitAverageWatts {
+                        Text("avg \(Int(avg.rounded())) W")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    } else if let w = appState.status?.inputWatts {
                         Text("now \(Int(w.rounded())) W")
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
@@ -78,12 +96,20 @@ struct SettingsView: View {
                 }
                 .font(.caption)
 
+                if isBurstCharging {
+                    Text(appState.status?.powerLimitHolding == true
+                         ? "Right now: paused, waiting for the next burst"
+                         : "Right now: charging")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
                 if appState.status?.powerLimitUnreachable == true {
-                    Text("Your Mac is drawing more than "
-                         + "\(appState.config.powerLimitWatts) W with charging "
-                         + "already paused, so the battery can't refill at this "
-                         + "ceiling. Raise it above your usual draw — the "
-                         + "reading above is a good guide.")
+                    Text("Charging is already paused and your Mac still needs "
+                         + "more than \(appState.config.powerLimitWatts) W by "
+                         + "itself, so there is nothing left over to refill the "
+                         + "battery. Raise the ceiling above the figure just "
+                         + "under the slider, or wait for things to quiet down.")
                         .font(.caption2)
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -92,17 +118,30 @@ struct SettingsView: View {
         } header: {
             Text("Power limit")
         } footer: {
-            Text("Your Mac pulls the most power when the battery is charging "
-                 + "hard. With this on, ChargeGuard pauses charging whenever "
-                 + "total draw goes above your ceiling and lets it resume once "
-                 + "it settles — so the battery still fills up, just gently, "
-                 + "and the adapter never runs flat out.\n\n"
-                 + "Your apps are never slowed down. If the Mac alone already "
-                 + "draws more than the ceiling, charging can't fit underneath "
-                 + "it — ChargeGuard says so instead of holding forever, and "
-                 + "always lets the battery charge again below 20%.")
+            Text("Charging on this Mac is all-or-nothing: the moment the "
+                 + "battery is allowed to charge, your Mac pulls roughly 35 W "
+                 + "more — no matter what number you pick here. So ChargeGuard "
+                 + "charges in short bursts and averages out to your ceiling. "
+                 + "A lower ceiling means shorter, rarer bursts: a slower, "
+                 + "cooler charge. The battery still fills up.\n\n"
+                 + "Your apps are never slowed down — only the battery's share "
+                 + "is rationed. If your Mac alone already draws more than the "
+                 + "ceiling there is no room left for the battery; ChargeGuard "
+                 + "says so instead of holding forever, and always lets the "
+                 + "battery charge again below 20%.")
                 .font(.caption2)
         }
+    }
+
+    /// True when the ceiling is actually rationing charge, i.e. charging is
+    /// running less than nearly all of the time. Drives the burst wording so a
+    /// ceiling set above the Mac's appetite doesn't claim to be doing work.
+    private var isBurstCharging: Bool {
+        guard appState.status?.powerLimitUnreachable != true else { return false }
+        guard let duty = appState.status?.powerLimitDutyPercent else {
+            return false
+        }
+        return duty < 92
     }
 
     private var powerLimitBinding: Binding<Double> {
@@ -348,10 +387,9 @@ struct SettingsView: View {
                 + "still works."
         }
         if m.contains("unavailable") {
-            return "Couldn't read the charging contract just now — the port "
-                + "goes quiet when the battery is full. Nothing is wrong; "
-                + "check again while it's charging. Power limit at the top "
-                + "works either way."
+            return "Couldn't read the charging contract just now. Nothing is "
+                + "wrong — try again in a moment, ideally while the battery is "
+                + "charging. Power limit at the top works either way."
         }
         return raw
     }

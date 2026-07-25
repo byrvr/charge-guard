@@ -67,11 +67,36 @@ final class GuardEngine {
     // `lastLimitChangeAt` enforces a dwell so charging never chatters.
     private var limitHolding = false
     private var lastLimitChangeAt: TimeInterval = 0
+    private var lastLimitSampleAt: TimeInterval = 0
+    /// The integrator that makes the ceiling mean something. Every sample adds
+    /// (cap - watts) x dt, so running under the ceiling banks credit and
+    /// charging spends it; charging switches on at the top of the band and off
+    /// at the bottom. Over a full cycle the integral is zero by construction,
+    /// which puts *average* draw exactly on the ceiling — and makes every
+    /// ceiling value produce a different charge rate, which a plain
+    /// over/under threshold does not.
+    private var limitBudgetJoules: Double = 0
+    /// Display-only rolling figures. An instantaneous watt reading taken
+    /// mid-pause looks like a lie sitting next to the ceiling, so the UI gets
+    /// the average and the duty share instead.
+    private var limitAvgWatts: Double?
+    private var limitDuty: Double = 1
+    /// Sampled only while charging is paused, so it is the Mac's own draw
+    /// with nothing going to the battery.
+    private var limitBaseWatts: Double?
     /// True once we know the ceiling can't be met: charging is already off
     /// and the Mac still draws more than the cap all by itself.
     private var limitUnreachable = false
     /// The ceiling never gets to run the battery below this.
     private static let limitFloorPercent = 20
+    /// Half-width of the energy band, in joules — sets how long each charge
+    /// burst runs. Bigger means longer, lazier cycles; 500 J gives bursts of
+    /// roughly 20-100s on a 65W adapter.
+    private static let limitBandJoules: Double = 500
+    /// Charging never flips faster than this, whatever the integrator says.
+    private static let limitMinSegment: TimeInterval = 15
+    /// Time constant for the reported average and duty figures.
+    private static let limitAverageTau: Double = 120
 
     private var events: [GuardEvent] = []
     private var timer: DispatchSourceTimer?
@@ -362,13 +387,18 @@ final class GuardEngine {
     /// Apple Silicon exposes no charge-current limit — CHTL looks like one but
     /// ignores writes, and the PD contract is re-asserted by the SoC's own
     /// policy manager — so the only lever that moves real watts is pausing
-    /// charging. While the Mac pulls more than the cap, charging is held off;
-    /// once draw settles back under it, charging resumes. The result is a
-    /// duty-cycled charge that keeps average draw at the ceiling without ever
-    /// throttling the system itself.
+    /// charging, and it is all-or-nothing: the instant charging is allowed the
+    /// Mac jumps to roughly system load + 35W, whatever the ceiling says.
     ///
-    /// Asymmetric dwell (10s to pause, 60s to resume) biases toward being
-    /// under the cap and keeps the charge from chattering on and off.
+    /// So the ceiling is held as an *average*, not as an instantaneous limit.
+    /// An energy integrator banks credit while draw sits under the ceiling and
+    /// spends it while charging runs, and charging is switched at the edges of
+    /// the band. A lower ceiling buys fewer charging seconds per minute, so
+    /// the slider maps onto a real, monotonic charge rate instead of every
+    /// value below the charging draw behaving identically.
+    ///
+    /// Nothing here throttles the system itself; apps always get what they ask
+    /// for and only the battery's share is rationed.
     private func enforcePowerLimit(_ now: TimeInterval) {
         guard config.powerLimitEnabled, isOnAC else {
             releasePowerLimit(now, reason: isOnAC ? "limit off" : "on battery")
@@ -382,6 +412,12 @@ final class GuardEngine {
         let cap = Double(config.powerLimitWatts)
         let battery = snapshot().batteryPercent
 
+        // dt is clamped: a sleep or a stalled tick must not dump one huge lump
+        // of credit into the integrator.
+        let dt = min(max(now - lastLimitSampleAt, 0), 15)
+        lastLimitSampleAt = now
+        trackLimitAverages(watts, dt)
+
         // Safety valve. A ceiling set below what the Mac needs on its own can
         // never be met by pausing charging, and while the pause is held the
         // battery quietly covers every load spike. Under `limitFloorPercent`
@@ -394,32 +430,31 @@ final class GuardEngine {
             return
         }
 
-        guard now - lastLimitChangeAt >= (limitHolding ? 60 : 10) else { return }
+        let band = Self.limitBandJoules
+        limitBudgetJoules = min(max(limitBudgetJoules + (cap - watts) * dt,
+                                    -band), band)
+        let heldFor = now - lastLimitChangeAt
+        guard heldFor >= Self.limitMinSegment else { return }
 
-        if !limitHolding, watts > cap {
+        if !limitHolding, limitBudgetJoules <= -band {
             limitHolding = true
             lastLimitChangeAt = now
             inhibit(true)
-            log(.guardOn, "power limit: \(Int(watts.rounded()))W is over the "
-                + "\(config.powerLimitWatts)W cap — charging paused")
-        } else if limitHolding, watts < cap {
-            // While the pause is on, `watts` is the Mac's own draw with
-            // nothing going to the battery — so any value under the ceiling
-            // means there is room to charge again. This compares against the
-            // ceiling itself rather than a margin below it on purpose: a
-            // ceiling set near the Mac's idle draw would never clear a margin,
-            // so charging would stay off forever while the battery drained.
-            // Chatter is handled by the 60s dwell, not by a wide dead band.
+            log(.guardOn, "power limit: burst done at "
+                + "\(Int(watts.rounded()))W — charging paused to hold the "
+                + "\(config.powerLimitWatts)W average")
+        } else if limitHolding, limitBudgetJoules >= band {
             limitHolding = false
             limitUnreachable = false
             lastLimitChangeAt = now
             inhibit(false)
-            log(.guardOff, "power limit: down to \(Int(watts.rounded()))W — "
-                + "charging resumed")
-        } else if limitHolding, !limitUnreachable {
-            // Charging is already off and we are still over the ceiling: the
-            // ceiling is below this Mac's own appetite. Say so rather than
-            // holding silently until the battery is flat.
+            log(.guardOff, "power limit: \(Int(watts.rounded()))W leaves room "
+                + "under the \(config.powerLimitWatts)W average — charging "
+                + "resumed")
+        } else if limitHolding, !limitUnreachable, watts >= cap, heldFor >= 180 {
+            // Charging is off and the Mac alone is still over the ceiling, so
+            // credit never rebuilds and the burst never comes. Say so rather
+            // than holding silently until the battery is flat.
             limitUnreachable = true
             log(.warning, "power limit: the Mac alone draws "
                 + "\(Int(watts.rounded()))W, over the "
@@ -428,8 +463,33 @@ final class GuardEngine {
         }
     }
 
+    /// Exponential averages of draw and of the charging duty share. Display
+    /// only — nothing in the control loop reads these.
+    private func trackLimitAverages(_ watts: Double, _ dt: TimeInterval) {
+        guard dt > 0 else {
+            if limitAvgWatts == nil { limitAvgWatts = watts }
+            return
+        }
+        let a = min(1, dt / Self.limitAverageTau)
+        limitAvgWatts = limitAvgWatts.map { $0 + (watts - $0) * a } ?? watts
+        limitDuty += ((limitHolding ? 0 : 1) - limitDuty) * a
+        if limitHolding {
+            // Charging is off, so this sample is the Mac by itself. Slower
+            // constant than the others: it is advice about where to put the
+            // slider, and advice that jitters is useless.
+            let b = min(1, dt / 180)
+            limitBaseWatts = limitBaseWatts.map { $0 + (watts - $0) * b }
+                ?? watts
+        }
+    }
+
     private func releasePowerLimit(_ now: TimeInterval, reason: String) {
         limitUnreachable = false
+        limitBudgetJoules = 0
+        limitAvgWatts = nil
+        limitDuty = 1
+        limitBaseWatts = nil
+        lastLimitSampleAt = now
         guard limitHolding else { return }
         limitHolding = false
         lastLimitChangeAt = now
@@ -575,6 +635,12 @@ final class GuardEngine {
             s.pdActiveWatts = pdActiveWatts
             s.powerLimitHolding = limitHolding
             s.powerLimitUnreachable = limitUnreachable
+            if config.powerLimitEnabled, isOnAC {
+                s.powerLimitAverageWatts = limitAvgWatts
+                s.powerLimitDutyPercent =
+                    Int((min(max(limitDuty, 0), 1) * 100).rounded())
+                s.powerLimitBaseWatts = limitBaseWatts
+            }
             if mode == .guarding {
                 s.nextProbeIn = max(0, nextProbeAt - uptime())
             }
@@ -602,6 +668,7 @@ final class GuardEngine {
             pdActiveWatts = nil
             limitHolding = false
             limitUnreachable = false
+            limitBudgetJoules = 0
             inhibit(false)
             restoreLPM()
         }
@@ -754,7 +821,7 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.5.1"
+    static let current = "0.6.1"
 }
 
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.
@@ -786,4 +853,8 @@ extension GuardEngine {
     var testPDActiveWatts: Int? { queue.sync { pdActiveWatts } }
     var testLimitHolding: Bool { queue.sync { limitHolding } }
     var testLimitUnreachable: Bool { queue.sync { limitUnreachable } }
+    var testLimitBudget: Double { queue.sync { limitBudgetJoules } }
+    var testLimitDuty: Double { queue.sync { limitDuty } }
+    var testLimitAvgWatts: Double? { queue.sync { limitAvgWatts } }
+    var testLimitBaseWatts: Double? { queue.sync { limitBaseWatts } }
 }
