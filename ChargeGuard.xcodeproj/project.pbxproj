@@ -35,9 +35,12 @@
 		CB1EDB0AC511C956C489B671 /* SMCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */; };
 		D1177F354D514815F2007D6B /* SMCBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 605B11518543B0ADE922726C /* SMCBridge.c */; };
 		D2223021B1F01BE59BE72152 /* GuardEngineSeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438CAF48395FFE092D3AEDC8 /* GuardEngineSeams.swift */; };
+		D944BF216D06397F39DA4A92 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = F420EF237A2F33A9F41398FB /* Version.swift */; };
 		DBC339E3C04327EFD22103B0 /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
 		DFB5C59836931962FF0F96E7 /* PDBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 1AD7B9A995A995F17F7CD10E /* PDBridge.c */; };
+		E1A8717CFF57EC3980764B93 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = F420EF237A2F33A9F41398FB /* Version.swift */; };
 		E7B8BC84DD187C4A5B44BB99 /* GuardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEACD198A006EB860CD64F2 /* GuardModels.swift */; };
+		EBEF007DFE89EAC2C6EA34A2 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = F420EF237A2F33A9F41398FB /* Version.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +80,7 @@
 		D74ADC05DB2F3A71F9BB0E16 /* SMCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCService.swift; sourceTree = "<group>"; };
 		E20016A61A73025BCB658D7D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCProtocol.swift; sourceTree = "<group>"; };
+		F420EF237A2F33A9F41398FB /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
 		F65752A9C6AC9B06533E9189 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -133,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				2EEACD198A006EB860CD64F2 /* GuardModels.swift */,
+				F420EF237A2F33A9F41398FB /* Version.swift */,
 				F22803196F12AF10D5FF5E0C /* XPCProtocol.swift */,
 			);
 			path = Shared;
@@ -313,6 +318,7 @@
 				C4E8D6A7FCDBDED8C6B87B73 /* PowerMonitor.swift in Sources */,
 				D1177F354D514815F2007D6B /* SMCBridge.c in Sources */,
 				308327A325B07C36FE8F9CD1 /* SMCService.swift in Sources */,
+				EBEF007DFE89EAC2C6EA34A2 /* Version.swift in Sources */,
 				5F63057FD0E58D1590AF9114 /* XPCProtocol.swift in Sources */,
 				0C02873CE6E400085241A4E9 /* main.swift in Sources */,
 			);
@@ -332,6 +338,7 @@
 				0DFB35C9254A7978F125F434 /* PowerMonitor.swift in Sources */,
 				857AEEA20DE281FE6FF4DCA4 /* SMCBridge.c in Sources */,
 				CB1EDB0AC511C956C489B671 /* SMCService.swift in Sources */,
+				E1A8717CFF57EC3980764B93 /* Version.swift in Sources */,
 				7FC0965D40E79AADCDD9752C /* XPCProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -347,6 +354,7 @@
 				A5BB956B9799394E18081DB1 /* MenuView.swift in Sources */,
 				41E42E4AE267D014760572E8 /* PrivilegedInstaller.swift in Sources */,
 				7174C5619E9D01C40DD477A8 /* SettingsView.swift in Sources */,
+				D944BF216D06397F39DA4A92 /* Version.swift in Sources */,
 				27B6776267A10524E1F5838E /* XPCClient.swift in Sources */,
 				0DB8B01F090A2CF824E69DBA /* XPCProtocol.swift in Sources */,
 			);
