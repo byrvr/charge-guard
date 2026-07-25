@@ -271,8 +271,11 @@ struct SettingsView: View {
         if m.contains("epr avs") || m.contains("recognized a") {
             return .recognizedEPR   // read OK; downshift-for-EPR not wired yet
         }
+        // "unavailable" means the read didn't land this time (an idle port at
+        // 100% does this) — that's "couldn't check", not "doesn't work".
         if m.isEmpty || m.contains("probing") || m.contains("no adapter")
-            || m.contains("plug in") || m.contains("check compatibility") {
+            || m.contains("plug in") || m.contains("check compatibility")
+            || m.contains("unavailable") {
             return .unknown
         }
         return .incompatible   // a real check ran and it isn't supported here
@@ -288,8 +291,10 @@ struct SettingsView: View {
                 Label("Recognized (EPR)", systemImage: "info.circle.fill")
                     .foregroundStyle(.blue)
             case .incompatible:
-                Label("Not supported yet", systemImage: "xmark.seal.fill")
-                    .foregroundStyle(.orange)
+                // Not a warning. Slow charging simply isn't a thing on most
+                // Apple Silicon Macs, and Power limit covers the same need.
+                Label("Not available on this Mac", systemImage: "minus.circle")
+                    .foregroundStyle(.secondary)
             case .unknown:
                 Label("Not checked", systemImage: "questionmark.circle")
                     .foregroundStyle(.secondary)
@@ -327,8 +332,10 @@ struct SettingsView: View {
                 + "still works."
         }
         if m.contains("unavailable") {
-            return "Couldn't reach the charger controller — make sure a charger "
-                + "is plugged in, then check again."
+            return "Couldn't read the charging contract just now — the port "
+                + "goes quiet when the battery is full. Nothing is wrong; "
+                + "check again while it's charging. Power limit at the top "
+                + "works either way."
         }
         return raw
     }
