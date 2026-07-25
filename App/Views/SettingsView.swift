@@ -56,7 +56,11 @@ struct SettingsView: View {
                 .padding(.top, 2)
 
                 HStack(spacing: 6) {
-                    if appState.status?.powerLimitHolding == true {
+                    if appState.status?.powerLimitUnreachable == true {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Ceiling is below what your Mac needs on its own")
+                    } else if appState.status?.powerLimitHolding == true {
                         Image(systemName: "pause.circle.fill")
                             .foregroundStyle(.orange)
                         Text("Holding — charging paused until draw settles")
@@ -73,6 +77,17 @@ struct SettingsView: View {
                     }
                 }
                 .font(.caption)
+
+                if appState.status?.powerLimitUnreachable == true {
+                    Text("Your Mac is drawing more than "
+                         + "\(appState.config.powerLimitWatts) W with charging "
+                         + "already paused, so the battery can't refill at this "
+                         + "ceiling. Raise it above your usual draw — the "
+                         + "reading above is a good guide.")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         } header: {
             Text("Power limit")
@@ -83,8 +98,9 @@ struct SettingsView: View {
                  + "it settles — so the battery still fills up, just gently, "
                  + "and the adapter never runs flat out.\n\n"
                  + "Your apps are never slowed down. If the Mac alone already "
-                 + "draws more than the ceiling, charging simply stays paused "
-                 + "until it quiets down.")
+                 + "draws more than the ceiling, charging can't fit underneath "
+                 + "it — ChargeGuard says so instead of holding forever, and "
+                 + "always lets the battery charge again below 20%.")
                 .font(.caption2)
         }
     }

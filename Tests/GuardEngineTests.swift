@@ -429,11 +429,11 @@ final class GuardEngineTests: XCTestCase {
         rig.clock.advance(15); rig.engine.testTick()
         XCTAssertTrue(rig.engine.testLimitHolding)
 
-        // Below the ceiling but inside the hysteresis band: still holding.
-        rig.smc.inputW = 55
+        // Still over the ceiling: the pause stays on.
+        rig.smc.inputW = 70
         rig.clock.advance(70); rig.engine.testTick()
         XCTAssertTrue(rig.engine.testLimitHolding,
-            "hysteresis keeps the pause until draw is clearly under")
+            "still over the ceiling, so charging stays off")
 
         rig.smc.inputW = 40
         rig.clock.advance(70); rig.engine.testTick()
@@ -503,6 +503,71 @@ final class GuardEngineTests: XCTestCase {
         rig.clock.advance(30); rig.engine.testTick()
         XCTAssertFalse(rig.engine.testLimitHolding,
             "the cap must be opt-in")
+        XCTAssertFalse(rig.smc.inhibited)
+    }
+
+    /// Regression. The resume threshold used to be `cap - 10`, which a ceiling
+    /// set near the Mac's own idle draw could never reach — charging stayed
+    /// off indefinitely and the battery drained while plugged in. Once the
+    /// pause is on, draw is charging-free, so anything under the ceiling means
+    /// there is room to charge.
+    func testPowerLimitResumesWhenCeilingSitsNearIdleDraw() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 30)
+        rig.smc.inputW = 55                  // charging hard, over the cap
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+
+        // Charging is off now and the Mac alone sits just under the ceiling.
+        rig.smc.inputW = 29
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitHolding,
+            "29W under a 30W ceiling leaves room to charge")
+        XCTAssertFalse(rig.smc.inhibited)
+        XCTAssertFalse(rig.engine.testLimitUnreachable)
+    }
+
+    func testPowerLimitFlagsAnUnreachableCeiling() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 30)
+        rig.smc.inputW = 45                  // the Mac alone wants more
+        setAC(rig, true)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+        XCTAssertFalse(rig.engine.testLimitUnreachable,
+            "one tick over the ceiling is not yet a verdict")
+
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitUnreachable,
+            "charging is already off and draw is still over the ceiling")
+
+        // Raising the ceiling above the Mac's appetite clears both.
+        withPowerLimit(rig, watts: 60)
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitUnreachable)
+        XCTAssertFalse(rig.engine.testLimitHolding)
+    }
+
+    func testPowerLimitReleasesWhenBatteryRunsDown() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 30)
+        rig.smc.inputW = 45
+        setAC(rig, true, battery: 60)
+        rig.clock.advance(15); rig.engine.testTick()
+        XCTAssertTrue(rig.engine.testLimitHolding)
+
+        // An unreachable ceiling has been quietly draining the battery.
+        setAC(rig, true, battery: 18)
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitHolding,
+            "the battery outranks the watt ceiling")
+        XCTAssertFalse(rig.smc.inhibited)
+        XCTAssertTrue(rig.engine.testLimitUnreachable)
+
+        // And it must not clamp straight back on at the next tick.
+        rig.clock.advance(70); rig.engine.testTick()
+        XCTAssertFalse(rig.engine.testLimitHolding)
         XCTAssertFalse(rig.smc.inhibited)
     }
 }

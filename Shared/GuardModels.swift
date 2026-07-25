@@ -112,6 +112,9 @@ public struct GuardStatus: Codable, Sendable {
     public var pdActiveWatts: Int?
     /// True while the power limit is actively holding charging paused.
     public var powerLimitHolding: Bool = false
+    /// True when the ceiling is set below what the Mac draws on its own, so
+    /// pausing charging can never get under it.
+    public var powerLimitUnreachable: Bool = false
     public var helperVersion: String = ""
 
     public init() {}

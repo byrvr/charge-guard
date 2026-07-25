@@ -67,6 +67,11 @@ final class GuardEngine {
     // `lastLimitChangeAt` enforces a dwell so charging never chatters.
     private var limitHolding = false
     private var lastLimitChangeAt: TimeInterval = 0
+    /// True once we know the ceiling can't be met: charging is already off
+    /// and the Mac still draws more than the cap all by itself.
+    private var limitUnreachable = false
+    /// The ceiling never gets to run the battery below this.
+    private static let limitFloorPercent = 20
 
     private var events: [GuardEvent] = []
     private var timer: DispatchSourceTimer?
@@ -375,7 +380,20 @@ final class GuardEngine {
         }
         guard let watts = smc.inputPowerWatts() else { return }
         let cap = Double(config.powerLimitWatts)
-        let resumeBelow = max(15, cap - 10)
+        let battery = snapshot().batteryPercent
+
+        // Safety valve. A ceiling set below what the Mac needs on its own can
+        // never be met by pausing charging, and while the pause is held the
+        // battery quietly covers every load spike. Under `limitFloorPercent`
+        // the battery wins: charging goes back on and stays on.
+        if battery <= Self.limitFloorPercent {
+            if limitHolding {
+                releasePowerLimit(now, reason: "battery down to \(battery)%")
+                limitUnreachable = watts >= cap
+            }
+            return
+        }
+
         guard now - lastLimitChangeAt >= (limitHolding ? 60 : 10) else { return }
 
         if !limitHolding, watts > cap {
@@ -384,16 +402,34 @@ final class GuardEngine {
             inhibit(true)
             log(.guardOn, "power limit: \(Int(watts.rounded()))W is over the "
                 + "\(config.powerLimitWatts)W cap — charging paused")
-        } else if limitHolding, watts < resumeBelow {
+        } else if limitHolding, watts < cap {
+            // While the pause is on, `watts` is the Mac's own draw with
+            // nothing going to the battery — so any value under the ceiling
+            // means there is room to charge again. This compares against the
+            // ceiling itself rather than a margin below it on purpose: a
+            // ceiling set near the Mac's idle draw would never clear a margin,
+            // so charging would stay off forever while the battery drained.
+            // Chatter is handled by the 60s dwell, not by a wide dead band.
             limitHolding = false
+            limitUnreachable = false
             lastLimitChangeAt = now
             inhibit(false)
             log(.guardOff, "power limit: down to \(Int(watts.rounded()))W — "
                 + "charging resumed")
+        } else if limitHolding, !limitUnreachable {
+            // Charging is already off and we are still over the ceiling: the
+            // ceiling is below this Mac's own appetite. Say so rather than
+            // holding silently until the battery is flat.
+            limitUnreachable = true
+            log(.warning, "power limit: the Mac alone draws "
+                + "\(Int(watts.rounded()))W, over the "
+                + "\(config.powerLimitWatts)W cap — raise the cap or the "
+                + "battery won't charge")
         }
     }
 
     private func releasePowerLimit(_ now: TimeInterval, reason: String) {
+        limitUnreachable = false
         guard limitHolding else { return }
         limitHolding = false
         lastLimitChangeAt = now
@@ -538,6 +574,7 @@ final class GuardEngine {
             s.pdConfirmed = pdConfirmed
             s.pdActiveWatts = pdActiveWatts
             s.powerLimitHolding = limitHolding
+            s.powerLimitUnreachable = limitUnreachable
             if mode == .guarding {
                 s.nextProbeIn = max(0, nextProbeAt - uptime())
             }
@@ -564,6 +601,7 @@ final class GuardEngine {
             _ = pdBounded(8, false) { [pd] in pd.restoreFullContract() }
             pdActiveWatts = nil
             limitHolding = false
+            limitUnreachable = false
             inhibit(false)
             restoreLPM()
         }
@@ -716,7 +754,7 @@ final class GuardEngine {
 }
 
 enum HelperVersion {
-    static let current = "0.5.0"
+    static let current = "0.5.1"
 }
 
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.
@@ -747,4 +785,5 @@ extension GuardEngine {
     var testPendingInhibit: Bool? { queue.sync { pendingInhibitWrite } }
     var testPDActiveWatts: Int? { queue.sync { pdActiveWatts } }
     var testLimitHolding: Bool { queue.sync { limitHolding } }
+    var testLimitUnreachable: Bool { queue.sync { limitUnreachable } }
 }
