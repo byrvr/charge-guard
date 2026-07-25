@@ -213,6 +213,19 @@ struct MenuView: View {
 struct EventLogView: View {
     let events: [GuardEvent]
 
+    /// A menu bar panel is for glancing at, not scrolling. The old scroll
+    /// view sized itself from the text's *unwrapped* ideal height, so a
+    /// message that wrapped to two lines got sliced in half at the bottom
+    /// edge. A plain stack of the newest few events can't clip: every row
+    /// is laid out at the real panel width and the panel grows to fit.
+    private let maxRows = 5
+
+    private var recent: [GuardEvent] {
+        Array(events.suffix(maxRows).reversed())
+    }
+
+    private var hiddenCount: Int { max(0, events.count - maxRows) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Activity").font(.caption).foregroundStyle(.secondary)
@@ -223,27 +236,40 @@ struct EventLogView: View {
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(events.suffix(30).reversed()) { event in
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Image(systemName: symbol(for: event.kind))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 12)
-                                Text(event.message)
-                                    .font(.caption2)
-                                    .lineLimit(2)
-                                Spacer(minLength: 0)
-                                Text(event.date, style: .time)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(recent) { event in
+                        row(event)
+                    }
+                    if hiddenCount > 0 {
+                        Text("+\(hiddenCount) earlier")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .padding(.leading, 18)
                     }
                 }
-                .frame(maxHeight: 140)
             }
+        }
+    }
+
+    /// One event line. `.top` alignment (not `.firstTextBaseline`) keeps the
+    /// icon and timestamp on the first line when a long message wraps, and
+    /// `fixedSize` guarantees the row gets the height it actually needs.
+    private func row(_ event: GuardEvent) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: symbol(for: event.kind))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(width: 12)
+            Text(event.message)
+                .font(.caption2)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(event.date, style: .time)
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
         }
     }
 
