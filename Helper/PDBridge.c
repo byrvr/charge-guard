@@ -60,7 +60,6 @@ uint32_t pd_fourcc(char a, char b, char c, char d) {
 static bool write_reg_allowed(uint8_t reg) {
     switch (reg) {
         case 0x33: // Tx Sink Capabilities (volatile)
-        case 0x37: // Autonegotiate Sink (volatile)
             return true;
         default:
             return false;

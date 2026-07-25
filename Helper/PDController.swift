@@ -8,24 +8,40 @@
 //  "real" fix: instead of gating charging on/off, it lowers the actual power
 //  budget the charger has to sustain.
 //
+//  REGISTER MAP NOTE (why this file looks unusual)
+//  ----------------------------------------------
+//  Apple ships its own firmware on the CD3217 ("ACE"), and its host-interface
+//  register map is NOT the stock TI TPS6598x map. Verified by a full root
+//  register scan on a J616sAP (MacBook Pro 16", firmware SN2012024 HW00A3
+//  FW003.0):
+//
+//    0x30  RX Source Caps    [count][PDO ...]  — what the charger offers
+//    0x33  TX Sink Caps      [count][PDO ...]  — what WE ask for (writable)
+//    0x34  EMPTY (len 0)     — the stock TI "Active PDO" register does not
+//                              exist here; reading it succeeds with 0 bytes
+//    0x35  Active Contract   [RDO 4B][PDO 4B][...]  — both halves, LE
+//    0x37  not a sink-policy register on Apple firmware (12 opaque bytes)
+//
+//  So the active contract is read from 0x35 (with a fallback to the stock
+//  0x34+0x35 pair for non-Apple controllers), and the sink policy we may cap
+//  is 0x33 Tx Sink Caps — a standard USB-PD PDO list on both firmwares.
+//
 //  This path is EXPERIMENTAL and undocumented on macOS. It is engineered to
 //  be recoverable, not merely hopeful:
 //
 //   * The first live action is a READ-ONLY probe. It opens and unlocks the
 //     controller (the same operations macvdmtool performs routinely and
-//     safely), reads the Active Contract register AND the Autonegotiate-Sink
-//     register, and validates BOTH decode sanely before any write is ever
-//     trusted. If either does not match the expected layout we abort.
-//   * Writes touch only the volatile Autonegotiate-Sink register (0x37) and
-//     trigger a volatile PD renegotiation ('ANeg'). The C bridge refuses to
-//     write any command register, so a flash/OTP task is structurally
-//     impossible — the worst realistic failure is a disrupted port that a
-//     reboot clears.
+//     safely), reads the Active Contract AND the Tx Sink Caps, and validates
+//     BOTH decode sanely before any write is ever trusted.
+//   * Writes touch only the volatile Tx Sink Caps register (0x33) and trigger
+//     a volatile PD renegotiation ('ANeg'). The C bridge refuses to write any
+//     command register, so a flash/OTP task is structurally impossible — the
+//     worst realistic failure is a disrupted port that a reboot clears.
 //   * Before the first write, the ORIGINAL register bytes are persisted to
-//     disk. Every downshift reads the contract back and auto-reverts to
-//     those saved bytes on any anomaly; disengage/shutdown restore from the
-//     same saved bytes; and a crash-recovery pass on helper start restores
-//     from them too, so a cap can never be silently left applied.
+//     disk. Every downshift reads the contract back and auto-reverts to those
+//     saved bytes on any anomaly; disengage/shutdown restore from the same
+//     saved bytes; and a crash-recovery pass on helper start restores from
+//     them too, so a cap can never be silently left applied.
 //
 //  When PD downshift is unavailable or unconfirmed, the engine falls back to
 //  the safe CHTE charge-inhibit guard.
@@ -60,8 +76,8 @@ enum PDProbeResult {
 
 /// A decoded USB-PD EPR Adjustable Voltage Supply (AVS) contract. On high-power
 /// Macs the 28V contract is negotiated through one of these, not a fixed PDO:
-/// the *range* lives in the source APDO (register 0x34) and the *live voltage*
-/// in the sink's request, the RDO (register 0x35).
+/// the *range* lives in the source APDO and the *live voltage* in the sink's
+/// request, the RDO.
 struct AVSContract: Equatable {
     var activeMillivolts: Int   // live output voltage, from the AVS RDO (25mV units)
     var activeMilliamps: Int    // operating current, from the AVS RDO (50mA units)
@@ -99,9 +115,31 @@ enum PDDownshiftResult {
 
 private enum Reg {
     static let mode: UInt8 = 0x03
-    static let activeContractPDO: UInt8 = 0x34
-    static let activeContractRDO: UInt8 = 0x35
-    static let autonegotiateSink: UInt8 = 0x37
+    static let rxSourceCaps: UInt8 = 0x30
+    /// Tx Sink Capabilities — the sink policy we advertise. `[count][PDO...]`,
+    /// standard USB-PD PDO encoding, little-endian. Writable and volatile on
+    /// both Apple and stock TI firmware.
+    static let txSinkCaps: UInt8 = 0x33
+    /// Stock TI "Active PDO". Absent (0-length) on Apple firmware.
+    static let activeContractLegacy: UInt8 = 0x34
+    /// Active contract. Apple firmware packs `[RDO 4B][PDO 4B]...` here; stock
+    /// TI exposes just the 4-byte RDO.
+    static let activeContract: UInt8 = 0x35
+}
+
+/// The live PD contract as the controller reports it: the source's PDO and our
+/// request (RDO), regardless of which register layout they came out of.
+private struct RawContract {
+    var pdo: UInt32
+    var rdo: UInt32
+    var source: String  // for logging: which layout matched
+}
+
+/// The sink policy we advertise, decoded from 0x33.
+private struct SinkPolicy {
+    var bytes: [UInt8]      // exact register contents, for byte-perfect restore
+    var pdos: [UInt32]
+    var maxMillivolts: Int
 }
 
 final class PDController {
@@ -114,21 +152,30 @@ final class PDController {
         lock: PDController.fourCC("LOCK"),
         gaid: PDController.fourCC("Gaid"),
         dbma: PDController.fourCC("DBMa"),
-        aneg: PDController.fourCC("ANeg")
+        aneg: PDController.fourCC("ANeg"),
+        gsrc: PDController.fourCC("GSrC")
     )
 
-    // The saved original 0x37 bytes live on disk so a downshift can always be
-    // undone — including after a crash. Presence of this file means "a cap
+    // The saved original sink-caps bytes live on disk so a downshift can always
+    // be undone — including after a crash. Presence of this file means "a cap
     // may be applied".
     private static let stateDir = URL(fileURLWithPath:
         "/Library/Application Support/ChargeGuard")
     private static let markerURL =
+        stateDir.appendingPathComponent("pd.sinkcaps.original")
+    /// Pre-0.5 marker held bytes for a register we no longer write. Never
+    /// replay it — just delete it so it can't be mistaken for a live cap.
+    private static let legacyMarkerURL =
         stateDir.appendingPathComponent("pd.autoneg.original")
 
     /// Plausibility bound for the sink's max-voltage field: it must be at
     /// least the currently negotiated contract voltage and no more than ~29V
     /// (headroom for a 28V EPR contract on high-power Macs).
     private static let sinkMaxCeilingMV = 29_000
+
+    init() {
+        try? FileManager.default.removeItem(at: Self.legacyMarkerURL)
+    }
 
     // MARK: - Probe (read-only)
 
@@ -145,25 +192,26 @@ final class PDController {
             return .unavailable(reason: "debug mode not entered")
         }
 
-        guard let activeRaw = readU32(conn, Reg.activeContractPDO) else {
+        guard let raw = readRawContract(conn) else {
             return .unavailable(reason: "couldn't read the active contract")
         }
-        let rdoRaw = readU32(conn, Reg.activeContractRDO) ?? 0
-        let sink = readBytes(conn, Reg.autonegotiateSink) ?? []
+        let policy = readSinkPolicy(conn)
 
         // Diagnostic dump: the exact raw contract, so the controller's true
         // layout can be confirmed from the log before any write path is trusted.
-        NSLog("[ChargeGuard] PD raw: PDO=%08x type=%u sub=%u  RDO=%08x  sink37=%@",
-              activeRaw, (activeRaw >> 30) & 3, (activeRaw >> 28) & 3, rdoRaw,
-              sink.prefix(24).map { String(format: "%02x", $0) }
+        NSLog("[ChargeGuard] PD raw (%@): PDO=%08x type=%u sub=%u  RDO=%08x  "
+              + "sinkCaps=%@",
+              raw.source, raw.pdo, (raw.pdo >> 30) & 3, (raw.pdo >> 28) & 3,
+              raw.rdo,
+              (policy?.bytes ?? []).prefix(24).map { String(format: "%02x", $0) }
                   .joined(separator: " "))
 
-        guard let active = PDOContract.decodeFixed(activeRaw) else {
+        guard let active = PDOContract.decodeFixed(raw.pdo) else {
             // Not a fixed PDO. High-power Macs negotiate 28V through an EPR AVS
             // contract. Decode it, and — if the AVS range and the sink policy
-            // register both look right — confirm it as downshiftable: capping
-            // the sink to a standard rail forces the Mac out of EPR.
-            guard let avs = AVSContract.decode(pdo: activeRaw, rdo: rdoRaw) else {
+            // both look right — confirm it as downshiftable: capping the sink
+            // to a standard rail forces the Mac out of EPR.
+            guard let avs = AVSContract.decode(pdo: raw.pdo, rdo: raw.rdo) else {
                 return .layoutMismatch(reason: "Active Contract did not decode "
                     + "as a fixed PDO or an EPR AVS contract")
             }
@@ -172,52 +220,51 @@ final class PDController {
             guard avs.maxMillivolts >= 20_000,
                   avs.maxMillivolts <= Self.sinkMaxCeilingMV,
                   avs.activeMillivolts > 0,
-                  avs.activeMillivolts <= avs.maxMillivolts + 200 else {
+                  avs.activeMillivolts <= avs.maxMillivolts + 200,
+                  let policy = policy,
+                  policy.maxMillivolts >= avs.activeMillivolts,
+                  policy.maxMillivolts <= Self.sinkMaxCeilingMV,
+                  Self.cappedSinkCaps(policy, toMV: 15_000) != nil else {
                 return .eprRecognized(activeMV: avs.activeMillivolts,
                                       maxMV: avs.maxMillivolts,
                                       watts: avs.activeWatts)
             }
-            // The sink policy register (0x37) must also decode to a plausible
-            // max-voltage — the same gate the fixed path applies — or we must
-            // never write it. If it doesn't, drop to read-only recognition.
-            guard sink.count >= 2 else {
-                return .eprRecognized(activeMV: avs.activeMillivolts,
-                                      maxMV: avs.maxMillivolts,
-                                      watts: avs.activeWatts)
-            }
-            let sinkMaxMV = (Int(sink[0]) | Int(sink[1]) << 8) * 50
-            guard sinkMaxMV >= avs.activeMillivolts,
-                  sinkMaxMV <= Self.sinkMaxCeilingMV else {
-                return .eprRecognized(activeMV: avs.activeMillivolts,
-                                      maxMV: avs.maxMillivolts,
-                                      watts: avs.activeWatts)
-            }
-            // Both registers read cleanly and the sink layout is writable: this
+            // Both registers read cleanly and the sink policy is cappable: this
             // Mac can be downshifted out of EPR safely. Expose the live AVS
             // voltage/current as the active contract.
             return .confirmed(active: PDOContract(
                                 millivolts: avs.activeMillivolts,
                                 milliamps: avs.activeMilliamps),
-                              sinkMaxMV: sinkMaxMV)
+                              sinkMaxMV: policy.maxMillivolts)
         }
-        guard abs(active.watts - expectedWatts) <= 5 else {
-            return .layoutMismatch(reason: "Active Contract decoded to "
-                + "\(active.watts)W, expected ~\(expectedWatts)W")
+
+        // Sanity-check the decode against what the SMC says the adapter is
+        // rated for. Generous tolerance: the contract tracks the adapter's
+        // advertised budget but the two are reported by different subsystems.
+        if expectedWatts > 0 {
+            let slack = max(8, expectedWatts / 4)
+            guard abs(active.watts - expectedWatts) <= slack else {
+                return .layoutMismatch(reason: "Active Contract decoded to "
+                    + "\(active.watts)W, expected ~\(expectedWatts)W")
+            }
         }
-        // Validate 0x37 too: its head u16 must already look like a plausible
-        // sink max-voltage, else our downshift assumption about its layout is
-        // wrong and we must never write it.
-        guard sink.count >= 2 else {
-            return .layoutMismatch(reason: "Autonegotiate-Sink unreadable")
+
+        guard let policy = policy else {
+            return .layoutMismatch(reason: "Tx Sink Caps unreadable")
         }
-        let sinkMaxMV = (Int(sink[0]) | Int(sink[1]) << 8) * 50
-        guard sinkMaxMV >= active.millivolts,
-              sinkMaxMV <= Self.sinkMaxCeilingMV else {
-            return .layoutMismatch(reason: "Autonegotiate-Sink head "
-                + "(\(sinkMaxMV)mV) is not a plausible max-voltage; layout "
-                + "differs from standard TI — downshift unsafe here")
+        guard policy.maxMillivolts >= active.millivolts,
+              policy.maxMillivolts <= Self.sinkMaxCeilingMV else {
+            return .layoutMismatch(reason: "Tx Sink Caps ceiling "
+                + "(\(policy.maxMillivolts)mV) doesn't bracket the active "
+                + "contract (\(active.millivolts)mV) — downshift unsafe here")
         }
-        return .confirmed(active: active, sinkMaxMV: sinkMaxMV)
+        // A cap must be constructible without dropping the mandatory 5V object,
+        // else we would advertise an illegal sink policy.
+        guard Self.cappedSinkCaps(policy, toMV: 15_000) != nil else {
+            return .layoutMismatch(reason: "Tx Sink Caps can't be capped "
+                + "without breaking the mandatory 5V object")
+        }
+        return .confirmed(active: active, sinkMaxMV: policy.maxMillivolts)
     }
 
     // MARK: - Downshift
@@ -233,20 +280,21 @@ final class PDController {
 
         // Re-read and decode the active contract at write time — a fixed PDO
         // (standard Macs) or an EPR AVS contract (high-power Macs at 28V).
-        guard let activeRaw = readU32(conn, Reg.activeContractPDO) else {
+        guard let raw = readRawContract(conn) else {
             return .refused(reason: "active-contract read failed")
         }
-        let rdoRaw = readU32(conn, Reg.activeContractRDO) ?? 0
         let activeMV: Int
         let activeWatts: Int
-        if let fixed = PDOContract.decodeFixed(activeRaw) {
+        if let fixed = PDOContract.decodeFixed(raw.pdo) {
             // Fixed PDO: re-validate against the adapter's advertised budget.
-            guard abs(fixed.watts - expectedWatts) <= 5 else {
+            let slack = max(8, expectedWatts / 4)
+            guard expectedWatts <= 0 || abs(fixed.watts - expectedWatts) <= slack
+            else {
                 return .refused(reason: "active-contract re-validation failed")
             }
             activeMV = fixed.millivolts
             activeWatts = fixed.watts
-        } else if let avs = AVSContract.decode(pdo: activeRaw, rdo: rdoRaw) {
+        } else if let avs = AVSContract.decode(pdo: raw.pdo, rdo: raw.rdo) {
             // EPR AVS: identity is the APDO type, not a wattage match — the AVS
             // operating current (hence watts) tracks real draw and varies.
             activeMV = avs.activeMillivolts
@@ -255,16 +303,14 @@ final class PDController {
             return .refused(reason: "active-contract did not decode")
         }
 
-        guard var sink = readBytes(conn, Reg.autonegotiateSink),
-              sink.count >= 2 else {
-            return .refused(reason: "could not read autonegotiate-sink")
+        guard let policy = readSinkPolicy(conn) else {
+            return .refused(reason: "could not read the sink policy")
         }
-        let origMaxMV = (Int(sink[0]) | Int(sink[1]) << 8) * 50
-        guard origMaxMV >= activeMV,
-              origMaxMV <= Self.sinkMaxCeilingMV else {
-            return .refused(reason: "autonegotiate-sink layout re-check failed")
+        guard policy.maxMillivolts >= activeMV,
+              policy.maxMillivolts <= Self.sinkMaxCeilingMV else {
+            return .refused(reason: "sink-policy layout re-check failed")
         }
-        let original = sink
+        let original = policy.bytes
 
         // Cap the sink to a standard rail. Clamp to 20V so a 28V EPR contract is
         // always forced down out of EPR onto a plain fixed rail, never left in
@@ -274,17 +320,17 @@ final class PDController {
             return .refused(reason: "target rail (\(targetMV)mV) is not below "
                 + "the active contract (\(activeMV)mV)")
         }
+        guard let capped = Self.cappedSinkCaps(policy, toMV: targetMV) else {
+            return .refused(reason: "can't build a \(targetMV / 1000)V sink "
+                + "policy from this Mac's advertised capabilities")
+        }
 
         // Persist the true original bytes BEFORE the first write, so any
         // failure path (including a crash) can restore them.
         persistOriginal(original)
 
-        let units = UInt16(targetMV / 50)
-        sink[0] = UInt8(units & 0xFF)
-        sink[1] = UInt8((units >> 8) & 0xFF)
-
-        guard writeBytes(conn, Reg.autonegotiateSink, sink),
-              command(conn, fourCC.aneg) == 0 else {
+        guard writeBytes(conn, Reg.txSinkCaps, capped),
+              renegotiate(conn) else {
             let ok = revert(conn, to: original, expectMV: activeMV)
             return .didNotStick(restoredTo: ok.contract,
                                 restoreVerified: ok.verified)
@@ -307,26 +353,34 @@ final class PDController {
     }
 
     /// Writes the saved original bytes back and confirms the un-cap took hold:
-    /// the sink policy register reads back to its original head (the thing we
+    /// the sink policy register reads back to its original bytes (the thing we
     /// actually control), or the live contract voltage climbed back to near the
     /// original rail. Clears the marker only on a verified restore. Handles both
     /// fixed and AVS read-back.
     private func revert(_ conn: OpaquePointer, to original: [UInt8],
                         expectMV: Int)
         -> (contract: PDOContract?, verified: Bool) {
-        _ = writeBytes(conn, Reg.autonegotiateSink, original)
-        _ = command(conn, fourCC.aneg)
+        _ = writeBytes(conn, Reg.txSinkCaps, original)
+        _ = renegotiate(conn)
         usleep(400_000)
         let restored = readContract(conn)
-        // Primary signal: the policy register head is byte-for-byte back to the
+        // Primary signal: the policy register is byte-for-byte back to the
         // original. Fallback: the negotiated voltage recovered near the rail we
-        // started from (covers a controller that doesn't echo 0x37 verbatim).
-        let policyBack = readBytes(conn, Reg.autonegotiateSink)
-            .map { Array($0.prefix(2)) == Array(original.prefix(2)) } ?? false
+        // started from (covers a controller that doesn't echo 0x33 verbatim).
+        let policyBack = readBytes(conn, Reg.txSinkCaps)
+            .map { $0 == original } ?? false
         let voltageBack = restored.map { $0.millivolts + 500 >= expectMV } ?? false
         let verified = policyBack || voltageBack
         if verified { clearMarker() }
         return (restored, verified)
+    }
+
+    /// Asks the controller to re-evaluate the sink policy we just wrote.
+    /// 'ANeg' is the direct autonegotiate trigger; 'GSrC' (re-request the
+    /// source caps) is the fallback for firmware that ignores ANeg.
+    private func renegotiate(_ conn: OpaquePointer) -> Bool {
+        if command(conn, fourCC.aneg) == 0 { return true }
+        return command(conn, fourCC.gsrc) == 0
     }
 
     // MARK: - Restore (disengage / shutdown / crash recovery)
@@ -343,10 +397,10 @@ final class PDController {
         defer { pd_close(conn) }
         guard unlock(conn), enterDebug(conn) else { return false }
 
-        _ = writeBytes(conn, Reg.autonegotiateSink, original)
-        _ = command(conn, fourCC.aneg)
+        _ = writeBytes(conn, Reg.txSinkCaps, original)
+        _ = renegotiate(conn)
         usleep(400_000)
-        // Best-effort verification: any successful fixed-PDO read after
+        // Best-effort verification: any successful contract read after
         // restoring the original policy is good enough to clear the marker;
         // if the adapter is gone there is no contract to read and we still
         // clear (the volatile cap is gone with the adapter anyway).
@@ -376,7 +430,7 @@ final class PDController {
 
     private func loadOriginal() -> [UInt8]? {
         guard let data = try? Data(contentsOf: Self.markerURL),
-              data.count >= 2 else { return nil }
+              data.count >= 5 else { return nil }
         return [UInt8](data)
     }
 
@@ -393,6 +447,83 @@ final class PDController {
         case 27..<36: return 9_000
         default: return 5_000
         }
+    }
+
+    // MARK: - Sink policy (0x33 Tx Sink Caps)
+
+    /// Parses `[count][PDO 4B]...` into raw PDOs. Rejects a count that doesn't
+    /// fit the bytes we actually got back, so a short/garbled read can never be
+    /// mistaken for a policy we understand.
+    private static func parseSinkCaps(_ bytes: [UInt8]) -> [UInt32]? {
+        guard let count = bytes.first, count > 0, count <= 11 else { return nil }
+        let need = 1 + Int(count) * 4
+        guard bytes.count >= need else { return nil }
+        return (0..<Int(count)).map { i in
+            let o = 1 + i * 4
+            return UInt32(bytes[o]) | (UInt32(bytes[o + 1]) << 8)
+                | (UInt32(bytes[o + 2]) << 16) | (UInt32(bytes[o + 3]) << 24)
+        }
+    }
+
+    /// The highest voltage a sink PDO asks for, across all PDO shapes.
+    private static func maxVoltageMV(ofSinkPDO raw: UInt32) -> Int? {
+        switch (raw >> 30) & 0x3 {
+        case 0: return Int((raw >> 10) & 0x3FF) * 50     // Fixed
+        case 1, 2: return Int((raw >> 20) & 0x3FF) * 50  // Battery / Variable
+        default:
+            switch (raw >> 28) & 0x3 {
+            case 0: return Int((raw >> 17) & 0xFF) * 100   // SPR PPS
+            case 1: return Int((raw >> 17) & 0x1FF) * 100  // EPR AVS
+            default: return nil
+            }
+        }
+    }
+
+    private func readSinkPolicy(_ conn: OpaquePointer) -> SinkPolicy? {
+        guard let bytes = readBytes(conn, Reg.txSinkCaps),
+              let pdos = Self.parseSinkCaps(bytes) else { return nil }
+        let maxima = pdos.compactMap { Self.maxVoltageMV(ofSinkPDO: $0) }
+        guard maxima.count == pdos.count, let ceiling = maxima.max(),
+              ceiling > 0 else { return nil }
+        return SinkPolicy(bytes: bytes, pdos: pdos, maxMillivolts: ceiling)
+    }
+
+    /// Rebuilds the sink-caps register so nothing above `target` is advertised:
+    /// fixed objects above the rail are dropped, variable objects have their
+    /// max-voltage field clamped, and battery/augmented objects are withdrawn.
+    /// Returns nil unless the result still leads with the mandatory 5V fixed
+    /// object — advertising an illegal sink policy is never worth the risk.
+    /// The register is rewritten in place at its original length, so only the
+    /// count byte and the PDO slots ever change.
+    private static func cappedSinkCaps(_ policy: SinkPolicy,
+                                       toMV target: Int) -> [UInt8]? {
+        var kept: [UInt32] = []
+        for raw in policy.pdos {
+            switch (raw >> 30) & 0x3 {
+            case 0:
+                if Int((raw >> 10) & 0x3FF) * 50 <= target { kept.append(raw) }
+            case 2:
+                let minMV = Int((raw >> 10) & 0x3FF) * 50
+                guard minMV <= target else { continue }
+                let units = UInt32(target / 50) & 0x3FF
+                kept.append((raw & ~(UInt32(0x3FF) << 20)) | (units << 20))
+            default:
+                continue // battery + augmented: not advertised while capped
+            }
+        }
+        guard let first = kept.first, (first >> 30) & 0x3 == 0,
+              Int((first >> 10) & 0x3FF) * 50 == 5_000 else { return nil }
+        guard 1 + kept.count * 4 <= policy.bytes.count else { return nil }
+        var out = policy.bytes
+        out[0] = UInt8(kept.count)
+        for (i, raw) in kept.enumerated() {
+            let o = 1 + i * 4
+            out[o] = UInt8(raw & 0xFF)
+            out[o + 1] = UInt8((raw >> 8) & 0xFF)
+            out[o + 2] = UInt8((raw >> 16) & 0xFF)
+            out[o + 3] = UInt8((raw >> 24) & 0xFF)
+        }
+        return out == policy.bytes ? nil : out
     }
 
     // MARK: - Controller primitives
@@ -436,10 +567,53 @@ final class PDController {
         return Array(buf.prefix(Int(outLen)))
     }
 
-    private func readU32(_ conn: OpaquePointer, _ reg: UInt8) -> UInt32? {
-        guard let b = readBytes(conn, reg), b.count >= 4 else { return nil }
-        return UInt32(b[0]) | (UInt32(b[1]) << 8) | (UInt32(b[2]) << 16)
-            | (UInt32(b[3]) << 24)
+    private static func u32(_ b: [UInt8], _ o: Int) -> UInt32 {
+        UInt32(b[o]) | (UInt32(b[o + 1]) << 8) | (UInt32(b[o + 2]) << 16)
+            | (UInt32(b[o + 3]) << 24)
+    }
+
+    /// Reads the live contract across both register layouts.
+    ///
+    /// Stock TI puts the source PDO at 0x34 and the RDO at 0x35. Apple's
+    /// firmware leaves 0x34 empty and packs `[RDO][PDO]` into 0x35. Rather
+    /// than branch on a firmware version we can't enumerate, we take whichever
+    /// candidate actually decodes as a PDO — a fixed/AVS object and an RDO are
+    /// trivially distinguishable, and a wrong guess would simply fail to
+    /// decode rather than mis-report power.
+    private func readRawContract(_ conn: OpaquePointer) -> RawContract? {
+        let legacy = readBytes(conn, Reg.activeContractLegacy) ?? []
+        let active = readBytes(conn, Reg.activeContract) ?? []
+
+        // Stock TI: 0x34 holds the PDO, 0x35 holds the RDO.
+        if legacy.count >= 4 {
+            let pdo = Self.u32(legacy, 0)
+            if Self.decodesAsPDO(pdo) {
+                let rdo = active.count >= 4 ? Self.u32(active, 0) : 0
+                return RawContract(pdo: pdo, rdo: rdo, source: "0x34+0x35")
+            }
+        }
+        // Apple: 0x35 holds [RDO][PDO].
+        if active.count >= 8 {
+            let a = Self.u32(active, 0), b = Self.u32(active, 4)
+            if Self.decodesAsPDO(b) {
+                return RawContract(pdo: b, rdo: a, source: "0x35 rdo|pdo")
+            }
+            if Self.decodesAsPDO(a) {
+                return RawContract(pdo: a, rdo: b, source: "0x35 pdo|rdo")
+            }
+        }
+        return nil
+    }
+
+    /// True if `raw` looks like a supply object we can act on — a fixed PDO
+    /// with a sane rail, or an EPR AVS APDO. Deliberately strict: this is the
+    /// discriminator that decides which half of 0x35 is the PDO.
+    private static func decodesAsPDO(_ raw: UInt32) -> Bool {
+        if let fixed = PDOContract.decodeFixed(raw) {
+            return fixed.millivolts >= 5_000 && fixed.millivolts <= 28_000
+                && fixed.milliamps >= 500
+        }
+        return (raw >> 30) & 0x3 == 0x3 && (raw >> 28) & 0x3 == 0x1
     }
 
     /// Reads and decodes the active contract as a `PDOContract`, whether the
@@ -447,10 +621,9 @@ final class PDController {
     /// taken from the AVS RDO). Used by downshift/revert read-backs so both
     /// contract shapes are handled uniformly.
     private func readContract(_ conn: OpaquePointer) -> PDOContract? {
-        guard let raw = readU32(conn, Reg.activeContractPDO) else { return nil }
-        if let fixed = PDOContract.decodeFixed(raw) { return fixed }
-        let rdo = readU32(conn, Reg.activeContractRDO) ?? 0
-        if let avs = AVSContract.decode(pdo: raw, rdo: rdo) {
+        guard let raw = readRawContract(conn) else { return nil }
+        if let fixed = PDOContract.decodeFixed(raw.pdo) { return fixed }
+        if let avs = AVSContract.decode(pdo: raw.pdo, rdo: raw.rdo) {
             return PDOContract(millivolts: avs.activeMillivolts,
                                milliamps: avs.activeMilliamps)
         }
