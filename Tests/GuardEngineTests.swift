@@ -654,4 +654,115 @@ final class GuardEngineTests: XCTestCase {
         XCTAssertFalse(rig.engine.testLimitHolding)
         XCTAssertFalse(rig.smc.inhibited)
     }
+
+    // MARK: - Ceiling changes
+
+    /// Runs a realistic all-or-nothing load: 15W idle, 63W the moment charging
+    /// is allowed. Returns the true average over the samples it took.
+    @discardableResult
+    private func runBursting(_ rig: Rig, _ seconds: Int) -> Double {
+        var energy = 0.0
+        var total = 0.0
+        for _ in 0..<max(1, seconds / 5) {
+            let w: Double = rig.smc.inhibited ? 15 : 63
+            rig.smc.inputW = w
+            rig.clock.advance(5)
+            rig.engine.testTick()
+            energy += w * 5
+            total += 5
+        }
+        return energy / total
+    }
+
+    /// The bug behind "the ceiling isn't holding". The integrator and the
+    /// reported average are both relative to a ceiling: at 45W they settle on
+    /// 45W and ~60% duty. Left alone across a slider move they kept reporting
+    /// exactly that against a fresh 30W ceiling for the length of the average's
+    /// time constant — so the panel showed 47W and 66% under a 30W cap and
+    /// looked like the cap did nothing.
+    func testChangingTheCeilingRestartsTheMeasurement() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 45)
+        rig.smc.inputW = 15
+        setAC(rig, true)
+        runBursting(rig, 900)
+
+        let settledAvg = rig.engine.testLimitAvgWatts ?? 0
+        // Wide tolerance on purpose: the reported figure is an exponential
+        // average whose time constant is close to the burst period, so it
+        // ripples with the cycle. The test is about what happens next.
+        XCTAssertEqual(settledAvg, 45, accuracy: 7,
+            "precondition: 45W ceiling settles on 45W")
+        XCTAssertGreaterThan(rig.engine.testLimitSampleSeconds, 90)
+
+        withPowerLimit(rig, watts: 30)
+        XCTAssertNil(rig.engine.testLimitAvgWatts,
+            "the old ceiling's average must not carry over")
+        XCTAssertEqual(rig.engine.testLimitBudget, 0,
+            "and neither may the old ceiling's banked energy")
+        XCTAssertEqual(rig.engine.testLimitSampleSeconds, 0)
+        XCTAssertNil(rig.engine.currentStatus().powerLimitAverageWatts,
+            "nothing is reported until the new ceiling has been measured")
+        XCTAssertTrue(rig.engine.currentStatus().powerLimitSettling)
+    }
+
+    /// Half an average next to the ceiling is worse than no number at all: it
+    /// is seeded from the first reading, so for the first minute it is mostly
+    /// "whatever the Mac happened to be drawing".
+    func testAverageIsWithheldUntilItHasEnoughHistory() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 30)
+        rig.smc.inputW = 15
+        setAC(rig, true)
+
+        runBursting(rig, 60)
+        var s = rig.engine.currentStatus()
+        XCTAssertNil(s.powerLimitAverageWatts)
+        XCTAssertNil(s.powerLimitDutyPercent)
+        XCTAssertTrue(s.powerLimitSettling)
+
+        runBursting(rig, 120)
+        s = rig.engine.currentStatus()
+        XCTAssertNotNil(s.powerLimitAverageWatts)
+        XCTAssertNotNil(s.powerLimitDutyPercent)
+        XCTAssertFalse(s.powerLimitSettling)
+    }
+
+    /// End to end on the exact numbers from the bug report: settle at 45W,
+    /// drop the slider to 30W, and the real draw has to follow it down.
+    func testLoweringTheCeilingLowersTheRealAverage() {
+        let rig = makeRig()
+        withPowerLimit(rig, watts: 45)
+        rig.smc.inputW = 15
+        setAC(rig, true)
+        let at45 = runBursting(rig, 1500)
+        XCTAssertEqual(at45, 45, accuracy: 4)
+
+        withPowerLimit(rig, watts: 30)
+        let at30 = runBursting(rig, 1500)
+        XCTAssertEqual(at30, 30, accuracy: 4,
+            "the measured draw must follow the slider down, not linger")
+        XCTAssertEqual(rig.engine.testLimitAvgWatts ?? 0, 30, accuracy: 6,
+            "and the figure the panel shows must agree with reality")
+    }
+
+    /// Enabling the ceiling mid-session starts a measurement too — otherwise
+    /// the first reading published is whatever the Mac drew at that instant.
+    func testEnablingTheCeilingStartsAMeasurement() {
+        let rig = makeRig()
+        rig.smc.inputW = 63
+        setAC(rig, true)
+        run(rig, 300)
+        withPowerLimit(rig, watts: 30)
+        XCTAssertEqual(rig.engine.testLimitSampleSeconds, 0)
+        XCTAssertTrue(rig.engine.currentStatus().powerLimitSettling)
+    }
+
+    /// One product, one version number.
+    func testHelperReportsTheSharedVersion() {
+        let rig = makeRig()
+        XCTAssertEqual(rig.engine.currentStatus().helperVersion,
+                       ChargeGuardVersion.current)
+        XCTAssertFalse(ChargeGuardVersion.current.isEmpty)
+    }
 }

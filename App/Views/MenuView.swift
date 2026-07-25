@@ -108,6 +108,15 @@ struct MenuView: View {
 
     private func adapterCaption(_ s: GuardStatus) -> String {
         guard s.isOnAC else { return "not connected" }
+        // With the ceiling on, charging runs in bursts and the instantaneous
+        // reading swings between idle and full charge every half minute. Show
+        // the same average the ceiling is actually holding, so this panel and
+        // the Power limit settings agree instead of appearing to contradict
+        // each other.
+        if let avg = s.powerLimitAverageWatts {
+            return String(format: "averaging %.0f W", avg)
+        }
+        if s.powerLimitSettling { return "measuring average…" }
         if let draw = s.inputWatts {
             return String(format: "drawing %.0f W now", draw)
         }

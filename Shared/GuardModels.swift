@@ -125,6 +125,10 @@ public struct GuardStatus: Codable, Sendable {
     /// number that decides which ceilings are usable at all: anything below it
     /// leaves nothing for the battery, so the UI shows it beside the slider.
     public var powerLimitBaseWatts: Double?
+    /// True while the ceiling is on but the averages are too young to report.
+    /// Every ceiling change restarts the measurement, so this is normal for
+    /// about a minute and a half after moving the slider.
+    public var powerLimitSettling: Bool = false
     public var helperVersion: String = ""
 
     public init() {}

@@ -69,6 +69,10 @@ struct SettingsView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                         Text("Ceiling is below what your Mac needs on its own")
+                    } else if isSettling {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundStyle(.secondary)
+                        Text("Measuring — the average takes about a minute")
                     } else if isBurstCharging {
                         Image(systemName: "bolt.circle.fill")
                             .foregroundStyle(.blue)
@@ -83,25 +87,25 @@ struct SettingsView: View {
                     Spacer()
                     // The average, not the instantaneous reading: charging runs
                     // in bursts, so a sample taken mid-pause reads far below
-                    // the ceiling and looks like the app is making it up.
+                    // the ceiling and looks like the app is making it up. While
+                    // it is still settling there is deliberately no number —
+                    // half an average next to the ceiling is worse than none.
                     if let avg = appState.status?.powerLimitAverageWatts {
                         Text("avg \(Int(avg.rounded())) W")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    } else if let w = appState.status?.inputWatts {
-                        Text("now \(Int(w.rounded())) W")
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
                 }
                 .font(.caption)
 
-                if isBurstCharging {
+                if isBurstCharging || isSettling {
                     Text(appState.status?.powerLimitHolding == true
                          ? "Right now: paused, waiting for the next burst"
-                         : "Right now: charging")
+                         : "Right now: charging — the port is pulling full "
+                           + "power until this burst ends")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if appState.status?.powerLimitUnreachable == true {
@@ -142,6 +146,14 @@ struct SettingsView: View {
             return false
         }
         return duty < 92
+    }
+
+    /// True while the helper is rebuilding the average after a ceiling change.
+    /// Every move of the slider restarts the measurement, so the old setting's
+    /// numbers are never shown against the new one.
+    private var isSettling: Bool {
+        appState.status?.powerLimitUnreachable != true
+            && appState.status?.powerLimitSettling == true
     }
 
     private var powerLimitBinding: Binding<Double> {
@@ -423,9 +435,20 @@ struct SettingsView: View {
                     appState.removeHelper()
                 }
                 Spacer()
-                if let v = appState.status?.helperVersion, !v.isEmpty {
-                    Text("v\(v)").foregroundStyle(.secondary)
-                }
+                Text("v\(ChargeGuardVersion.current)")
+                    .foregroundStyle(.secondary)
+            }
+            // The app and the helper are one product on one version number, so
+            // that is all that's shown — unless they actually disagree, which
+            // only happens when the app was updated and the helper wasn't. That
+            // is a real thing to fix, so it gets spelled out.
+            if let stale = staleHelperVersion {
+                Label("The background service is still on v\(stale). "
+                      + "Click Update Helper so both match.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         } header: {
             Text("Background service")
@@ -435,6 +458,13 @@ struct SettingsView: View {
                  + "your password once).")
                 .font(.caption2)
         }
+    }
+
+    /// The helper's version, but only when it differs from the app's.
+    private var staleHelperVersion: String? {
+        guard let v = appState.status?.helperVersion, !v.isEmpty,
+              v != ChargeGuardVersion.current else { return nil }
+        return v
     }
 
     private var helperDescription: String {

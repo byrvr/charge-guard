@@ -5,7 +5,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-VERSION=$(/usr/bin/awk -F'"' '/CFBundleShortVersionString/{print $2; exit}' project.yml)
+# Shared/Version.swift is the single source of truth — both binaries compile
+# it, and this pushes the same string into the app bundle's Info.plist.
+"$ROOT/scripts/sync-version.sh"
+VERSION=$(/usr/bin/sed -n 's/.*static let current = "\([^"]*\)".*/\1/p' \
+  Shared/Version.swift)
 DIST="$ROOT/dist"
 
 command -v xcodegen >/dev/null || { echo "install xcodegen: brew install xcodegen" >&2; exit 1; }

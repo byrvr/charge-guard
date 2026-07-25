@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-25
+
+### Fixed
+
+- **The watt ceiling looked ignored after moving the slider.** The energy
+  integrator and the reported average are both relative to a ceiling — at 45W
+  they settle on 45W and ~60% duty — and they were carried across a slider
+  move. So a fresh 30W ceiling spent the length of the average's time constant
+  reporting the *previous* setting's steady state: 47W and 66% under a 30W cap,
+  which reads exactly like the cap doing nothing. Changing the ceiling (or
+  switching the limit on) now restarts the measurement.
+- **Half-formed averages are no longer published.** The figures are
+  exponential averages seeded from the first reading, so for the first minute
+  they are mostly that first reading. The panel says "Measuring" until there is
+  about a cycle and a half of history behind them.
+- The menu panel showed the instantaneous draw while the settings panel showed
+  the average, so the two disagreed by ~30W mid-burst. Both now show the
+  average whenever the ceiling is on.
+
+### Changed
+
+- **One version number.** The app and the helper are one product; they now
+  share a single constant (`Shared/Version.swift`, stamped into the app bundle
+  by `scripts/sync-version.sh`) and the UI shows it once. Two numbers appear
+  only when they genuinely differ — a new app against a helper that was never
+  reinstalled — and then it says so and points at Update Helper.
+
 ## [0.2.0] - 2026-07-19
 
 ### Added

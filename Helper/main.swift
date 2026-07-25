@@ -111,5 +111,5 @@ let signalSources: [DispatchSourceSignal] = [SIGTERM, SIGINT].map { sig in
     return source
 }
 
-NSLog("[ChargeGuard] helper started (v%@)", HelperVersion.current)
+NSLog("[ChargeGuard] helper started (v%@)", ChargeGuardVersion.current)
 RunLoop.main.run()

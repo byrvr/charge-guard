@@ -81,6 +81,12 @@ final class GuardEngine {
     /// the average and the duty share instead.
     private var limitAvgWatts: Double?
     private var limitDuty: Double = 1
+    /// Seconds of samples behind the figures above. They are exponential
+    /// averages seeded from the first reading, so for the first minute or so
+    /// they are still mostly that first reading — publishing them that early
+    /// puts a number next to the ceiling that flatly contradicts it. Nothing
+    /// is reported until this passes `limitSettleSeconds`.
+    private var limitSampleSeconds: Double = 0
     /// Sampled only while charging is paused, so it is the Mac's own draw
     /// with nothing going to the battery.
     private var limitBaseWatts: Double?
@@ -97,6 +103,9 @@ final class GuardEngine {
     private static let limitMinSegment: TimeInterval = 15
     /// Time constant for the reported average and duty figures.
     private static let limitAverageTau: Double = 120
+    /// How much history the averages need before they are worth showing.
+    /// Roughly one full charge/pause cycle at any usable ceiling.
+    private static let limitSettleSeconds: Double = 90
 
     private var events: [GuardEvent] = []
     private var timer: DispatchSourceTimer?
@@ -470,6 +479,7 @@ final class GuardEngine {
             if limitAvgWatts == nil { limitAvgWatts = watts }
             return
         }
+        limitSampleSeconds += dt
         let a = min(1, dt / Self.limitAverageTau)
         limitAvgWatts = limitAvgWatts.map { $0 + (watts - $0) * a } ?? watts
         limitDuty += ((limitHolding ? 0 : 1) - limitDuty) * a
@@ -483,11 +493,31 @@ final class GuardEngine {
         }
     }
 
+    /// Wipes everything the old ceiling taught us.
+    ///
+    /// The integrator and the averages are both *relative to a ceiling*: at
+    /// 45W on this hardware they settle at roughly 45W and 60% duty, and those
+    /// are the exact numbers a 30W ceiling must not inherit. Carrying them
+    /// across a slider move meant the panel spent two minutes reporting the
+    /// previous setting's steady state — which reads as the cap being ignored,
+    /// because for those two minutes the displayed numbers really did belong
+    /// to a cap that was ignored. `limitBaseWatts` survives: it measures the
+    /// Mac's own appetite, which has nothing to do with where the slider sits.
+    private func resetPowerLimitAveraging(_ now: TimeInterval) {
+        limitBudgetJoules = 0
+        limitAvgWatts = nil
+        limitDuty = limitHolding ? 0 : 1
+        limitSampleSeconds = 0
+        limitUnreachable = false
+        lastLimitSampleAt = now
+    }
+
     private func releasePowerLimit(_ now: TimeInterval, reason: String) {
         limitUnreachable = false
         limitBudgetJoules = 0
         limitAvgWatts = nil
         limitDuty = 1
+        limitSampleSeconds = 0
         limitBaseWatts = nil
         lastLimitSampleAt = now
         guard limitHolding else { return }
@@ -636,15 +666,22 @@ final class GuardEngine {
             s.powerLimitHolding = limitHolding
             s.powerLimitUnreachable = limitUnreachable
             if config.powerLimitEnabled, isOnAC {
-                s.powerLimitAverageWatts = limitAvgWatts
-                s.powerLimitDutyPercent =
-                    Int((min(max(limitDuty, 0), 1) * 100).rounded())
+                // Held back until there is enough history to mean anything —
+                // a half-formed average sitting next to the ceiling reads as
+                // the ceiling being ignored. The UI says "settling" instead.
+                if limitSampleSeconds >= Self.limitSettleSeconds {
+                    s.powerLimitAverageWatts = limitAvgWatts
+                    s.powerLimitDutyPercent =
+                        Int((min(max(limitDuty, 0), 1) * 100).rounded())
+                } else {
+                    s.powerLimitSettling = true
+                }
                 s.powerLimitBaseWatts = limitBaseWatts
             }
             if mode == .guarding {
                 s.nextProbeIn = max(0, nextProbeAt - uptime())
             }
-            s.helperVersion = HelperVersion.current
+            s.helperVersion = ChargeGuardVersion.current
             return s
         }
     }
@@ -669,6 +706,7 @@ final class GuardEngine {
             limitHolding = false
             limitUnreachable = false
             limitBudgetJoules = 0
+            limitSampleSeconds = 0
             inhibit(false)
             restoreLPM()
         }
@@ -763,6 +801,8 @@ final class GuardEngine {
         queue.sync {
             let wasEnabled = config.protectionEnabled
             let wasPDEnabled = config.experimentalPDDownshift
+            let oldCap = config.powerLimitWatts
+            let wasLimiting = config.powerLimitEnabled
             config = sanitized
             Self.saveConfig(sanitized, to: configURL)
             if wasEnabled, !sanitized.protectionEnabled {
@@ -783,6 +823,15 @@ final class GuardEngine {
             // resume charging immediately, not on the next dwell tick.
             if !sanitized.powerLimitEnabled || !sanitized.protectionEnabled {
                 releasePowerLimit(uptime(), reason: "limit off")
+            } else if !wasLimiting || oldCap != sanitized.powerLimitWatts {
+                // A new ceiling is a new experiment. Start it clean instead of
+                // reporting the last one's steady state for the next two
+                // minutes.
+                resetPowerLimitAveraging(uptime())
+                if wasLimiting {
+                    log(.info, "power limit: ceiling \(oldCap)W → "
+                        + "\(sanitized.powerLimitWatts)W — remeasuring")
+                }
             }
         }
     }
@@ -820,10 +869,6 @@ final class GuardEngine {
     }
 }
 
-enum HelperVersion {
-    static let current = "0.6.1"
-}
-
 /// Minimal lock-guarded box for handing a result back from `pdQueue`.
 final class Atomic<T>: @unchecked Sendable {
     private let lock = NSLock()
@@ -857,4 +902,5 @@ extension GuardEngine {
     var testLimitDuty: Double { queue.sync { limitDuty } }
     var testLimitAvgWatts: Double? { queue.sync { limitAvgWatts } }
     var testLimitBaseWatts: Double? { queue.sync { limitBaseWatts } }
+    var testLimitSampleSeconds: Double { queue.sync { limitSampleSeconds } }
 }
